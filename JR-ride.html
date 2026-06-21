@@ -79,8 +79,9 @@
     text-shadow:0 2px 8px rgba(0,0,0,.6);transition:opacity .5s}
   .badge{background:var(--green);color:#13310a;font-weight:800;border-radius:6px;
     padding:5px 9px;font-size:13px;letter-spacing:.04em;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-  #dirTag{font-size:13px;font-weight:600;color:#e9efd9;background:rgba(20,26,16,.5);
+  #dirTag,#phaseTag{font-size:13px;font-weight:600;color:#e9efd9;background:rgba(20,26,16,.5);
     border:1px solid rgba(154,205,50,.5);padding:5px 10px;border-radius:6px;backdrop-filter:blur(4px)}
+  #phaseTag{color:#dfe7f6;border-color:rgba(255,255,255,.18);background:rgba(10,14,25,.48)}
 
   /* ---------- station sign ---------- */
   #signWrap{position:absolute;left:50%;top:14%;transform:translate(-50%,30px);z-index:9;
@@ -142,6 +143,15 @@
   #departBtn:hover{filter:brightness(1.06);transform:translateY(-1px)}
   #departBtn:active{transform:translateY(0)}
   #departBtn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
+  #routePreview{margin-top:14px;border:1px solid rgba(255,255,255,.1);border-radius:14px;
+    background:rgba(255,255,255,.045);padding:12px 12px 10px;color:#d9e1ee}
+  #routePreview .meta{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#9ea8ba;
+    letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}
+  #routePreview .stations{display:flex;gap:6px;overflow:hidden;white-space:nowrap;font-size:13px;line-height:1.5}
+  #routePreview .stations span{display:inline-flex;align-items:center;gap:6px;color:#f3f6fb}
+  #routePreview .stations span:not(:last-child)::after{content:'›';color:var(--green);font-weight:800}
+  #soundStatus{margin-top:10px;font-size:12px;color:#9ea8ba;line-height:1.45}
+  #soundStatus b{color:var(--green);font-weight:800}
 
   /* ---------- ride controls ---------- */
   #controls{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:10;
@@ -204,6 +214,7 @@
   <div id="hud">
     <div class="badge">JR 山手線</div>
     <div id="dirTag">—</div>
+    <div id="phaseTag">待機中</div>
   </div>
 
   <div id="signWrap">
@@ -257,6 +268,12 @@
       </button>
 
       <button id="departBtn">出発 — Depart</button>
+
+      <div id="routePreview" aria-live="polite">
+        <div class="meta"><span id="routeMeta">—</span><span id="routeTime">—</span></div>
+        <div class="stations" id="routeStations"></div>
+      </div>
+      <div id="soundStatus"></div>
     </div>
   </div>
 
@@ -323,6 +340,7 @@ const N = STATIONS.length;
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const pad2 = n => String(n).padStart(2,'0');
+const formatMs = ms => { const total=Math.max(0,Math.round(ms/1000)); const m=Math.floor(total/60), sec=String(total%60).padStart(2,'0'); return `${m}:${sec}`; };
 function smooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
 function hash(n){let x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);}
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -683,10 +701,12 @@ const Ride = {
   },
   finish(){
     this.playing=false;
+    UI.setPhase('到着');
     UI.showArrived(STATIONS[this.route[this.route.length-1]]);
   },
   exit(){
     this.riding=false; this.playing=false;
+    UI.setPhase('待機中');
     UI.exitRide();
   },
 
@@ -694,6 +714,7 @@ const Ride = {
     const step=this.steps[this.idx]; if(!step) return this.finish();
     const st=this.stationOf(step);
     if(step.type==='depart'){
+      UI.setPhase('発車メロディ');
       UI.showSign(step.rpos);
       Audio_.doorChime();
       setTimeout(()=>{ if(this.playing) Audio_.melody(st); }, SHARED.doorChime?0:520);
@@ -701,8 +722,9 @@ const Ride = {
       this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
       if(step.rpos===0) UI.updateProgress(0);
     }
-    else if(step.type==='transit'){ UI.hideSign(); UI.clearSubtitle(); }
+    else if(step.type==='transit'){ UI.setPhase('走行中'); UI.hideSign(); UI.clearSubtitle(); }
     else if(step.type==='arrive'){
+      UI.setPhase('到着放送');
       UI.showSign(step.rpos);
       Audio_.announcement(st);
       UI.updateProgress(step.rpos);
@@ -710,6 +732,7 @@ const Ride = {
       UI.subtitle(`まもなく、${st.kanji}。`, (last?'Final stop · ':'Arriving at ')+st.romaji);
     }
     else if(step.type==='dwell'){
+      UI.setPhase(step.final?'終点':'停車中');
       if(step.final){ setTimeout(()=>{ if(this.playing) this.finish(); }, 600); }
       else UI.subtitle(`${st.kanji}`, 'Doors opening');
     }
@@ -787,7 +810,22 @@ const UI = {
     $('#dirHint').textContent = (f===t)? 'same station' : `${stops} stop${stops!==1?'s':''}`;
     $('#dirTag').textContent = Ride.dir>0?'内回り':'外回り';
     $('#departBtn').disabled = (f===t);
+    this.updateRoutePreview(f,t,stops);
   },
+  updateRoutePreview(f,t,stops){
+    const route=[]; let i=f; route.push(i);
+    if(f!==t){ while(i!==t){ i=(i+Ride.dir+N)%N; route.push(i); } }
+    const travelMs = f===t ? 0 : TIMING.depart + (route.length-1)*(TIMING.transit+TIMING.arrive+TIMING.dwell) + Math.max(0,route.length-2)*TIMING.depart;
+    $('#routeMeta').textContent = f===t ? 'Choose a different destination' : `${stops} stop${stops!==1?'s':''} · ${route.length} station signs`;
+    $('#routeTime').textContent = f===t ? '—' : `demo ${formatMs(travelMs)}`;
+    const names = route.map(idx=>STATIONS[idx].kanji);
+    const compact = names.length>8 ? [...names.slice(0,4),'…',...names.slice(-3)] : names;
+    $('#routeStations').innerHTML = compact.map(name=>`<span>${name}</span>`).join('');
+    const stationFiles = STATIONS.reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length,0);
+    const sharedFiles = ['doorChime','transitAmbience'].filter(k=>!!SHARED[k]).length;
+    $('#soundStatus').innerHTML = `<b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · missing audio uses synth placeholders`;
+  },
+  setPhase(text){ $('#phaseTag').textContent=text; },
   flipDir(){ Ride.autoDir = (Ride.dir>0?-1:1); this.refreshDir(); },
 
   enterRide(){
