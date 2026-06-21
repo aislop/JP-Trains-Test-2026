@@ -1,0 +1,871 @@
+<!--
+  ============================================================
+   YAMANOTE RIDE  —  ride the window, not the map
+  ============================================================
+   HOW TO ADD YOUR OWN SOUNDS
+   --------------------------------------------------------
+   Every station below has a `sounds` object:
+       melody       -> departure melody (plays when LEAVING that station)
+       announcement -> arrival announcement (plays when PULLING IN)
+       ambience     -> optional per-station platform ambience (looped)
+   Put a URL (mp3/ogg/wav) in any of these. Leave it null and a
+   synthesized placeholder is generated automatically, so the ride
+   is never silent or broken.
+
+   Shared sounds live in SHARED below:
+       doorChime        -> short chime when doors close / depart
+       transitAmbience  -> looping "train running" sound (overrides synth clatter)
+
+   Example:
+       sounds:{ melody:'sounds/shibuya_melody.mp3',
+                announcement:'sounds/shibuya_arrival.mp3',
+                ambience:null }
+
+   You can also tune the pacing in TIMING / SPEED near the bottom
+   of the CONFIG block.
+  ============================================================
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#9ACD32;        /* Yamanote uguisu green */
+    --green-deep:#6fa01f;
+    --ink:#1c2230;
+    --paper:#f6f5ef;
+    --frame:#cfd2cf;
+    --frame-dark:#9aa09a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#0a0d18;
+    font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+    color:#fff;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+  #app{position:fixed;inset:0;overflow:hidden}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  /* ---------- glass / reflection ---------- */
+  #glass{position:absolute;inset:0;pointer-events:none;z-index:5;
+    box-shadow:inset 0 0 220px rgba(4,6,14,.72);
+    background:
+      linear-gradient(115deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 60%, rgba(255,255,255,.03) 100%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 2px, rgba(0,0,0,0) 2px 4px);}
+
+  /* ---------- train interior window frame ---------- */
+  #frame{position:absolute;inset:0;pointer-events:none;z-index:6}
+  .bar{position:absolute;background:linear-gradient(180deg,#e7e9e4,#c2c6c1)}
+  #f-top{top:0;left:0;right:0;height:22px;background:linear-gradient(180deg,#d7dad5,#a9aea8)}
+  #f-left{top:0;bottom:0;left:0;width:26px;background:linear-gradient(90deg,#e3e6e1,#aeb3ad)}
+  #f-right{top:0;bottom:0;right:0;width:26px;background:linear-gradient(270deg,#e3e6e1,#aeb3ad)}
+  #f-bottom{left:0;right:0;bottom:0;height:84px;background:linear-gradient(180deg,#c8ccc6,#e9ebe6 55%,#d2d6cf)}
+  #f-bottom::before{content:"";position:absolute;top:0;left:0;right:0;height:9px;
+    background:linear-gradient(180deg,var(--green),var(--green-deep));
+    box-shadow:0 1px 4px rgba(0,0,0,.25)}
+  #f-bottom::after{content:"";position:absolute;left:26px;right:26px;bottom:14px;height:40px;border-radius:6px;
+    background:repeating-linear-gradient(90deg,#bfc3bd 0 7px,#cdd1cb 7px 14px);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.18);opacity:.85}
+  /* rounded inner corners */
+  .corner{position:absolute;width:30px;height:30px;background:radial-gradient(circle at var(--cx) var(--cy), transparent 0 22px, #c2c6c1 22px)}
+  #c-tl{top:22px;left:26px;--cx:100%;--cy:100%}
+  #c-tr{top:22px;right:26px;--cx:0;--cy:100%}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:32px;left:38px;z-index:8;display:flex;gap:10px;align-items:center;
+    text-shadow:0 2px 8px rgba(0,0,0,.6);transition:opacity .5s}
+  .badge{background:var(--green);color:#13310a;font-weight:800;border-radius:6px;
+    padding:5px 9px;font-size:13px;letter-spacing:.04em;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  #dirTag{font-size:13px;font-weight:600;color:#e9efd9;background:rgba(20,26,16,.5);
+    border:1px solid rgba(154,205,50,.5);padding:5px 10px;border-radius:6px;backdrop-filter:blur(4px)}
+
+  /* ---------- station sign ---------- */
+  #signWrap{position:absolute;left:50%;top:14%;transform:translate(-50%,30px);z-index:9;
+    opacity:0;transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .6s;pointer-events:none;width:min(560px,86vw)}
+  #signWrap.show{opacity:1;transform:translate(-50%,0)}
+  #sign{background:var(--paper);border-radius:14px;padding:16px 20px 12px;color:var(--ink);
+    box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset;position:relative;
+    font-family:"M PLUS Rounded 1c","Noto Sans JP",sans-serif}
+  #sign .kana{font-size:14px;color:#7a8068;text-align:center;letter-spacing:.18em;font-weight:500}
+  #sign .kanji{font-size:clamp(34px,7vw,52px);font-weight:800;text-align:center;line-height:1.05;letter-spacing:.06em}
+  #sign .romaji{font-size:15px;text-align:center;letter-spacing:.34em;text-transform:uppercase;color:#3a4150;margin-top:2px;font-weight:700}
+  #sign .lineband{margin-top:12px;height:30px;border-radius:16px;background:linear-gradient(180deg,var(--green),var(--green-deep));
+    display:flex;align-items:center;justify-content:space-between;padding:0 14px;position:relative}
+  #sign .nb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:44px;height:44px;border-radius:50%;background:#fff;border:3px solid var(--green-deep);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;color:#2c3a14;box-shadow:0 4px 10px rgba(0,0,0,.3)}
+  #sign .nb b{font-size:9px;letter-spacing:.06em;line-height:1;margin-top:2px}
+  #sign .nb span{font-size:18px;font-weight:800;line-height:1}
+  #sign .adj{color:#163a06;font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px;max-width:38%;overflow:hidden;white-space:nowrap}
+  #sign .adj.r{justify-content:flex-end}
+
+  /* ---------- subtitle ---------- */
+  #subtitle{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);z-index:8;text-align:center;
+    opacity:0;transition:opacity .5s;pointer-events:none;width:90%}
+  #subtitle.show{opacity:1}
+  #subtitle .jp{font-size:clamp(20px,4vw,30px);font-weight:700;text-shadow:0 3px 14px rgba(0,0,0,.8)}
+  #subtitle .en{font-size:14px;letter-spacing:.16em;color:#dfe4ef;margin-top:2px;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+
+  /* ---------- setup card ---------- */
+  #setup{position:absolute;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 30%, rgba(8,11,22,.25), rgba(6,8,16,.78));transition:opacity .6s}
+  .card{width:min(440px,90vw);background:rgba(17,21,33,.72);backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:30px 28px 26px;
+    box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .card h1{font-size:26px;font-weight:900;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+  .card h1 .jr{background:var(--green);color:#13310a;font-size:13px;padding:3px 7px;border-radius:5px}
+  .card p.sub{color:#aab2c4;font-size:13px;margin-top:6px;line-height:1.5}
+  .field{margin-top:18px}
+  .field label{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8e97ab;margin-bottom:6px}
+  .selrow{position:relative}
+  select{width:100%;appearance:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+    color:#fff;font-size:16px;padding:13px 40px 13px 14px;border-radius:12px;cursor:pointer;
+    font-family:inherit}
+  select:focus{outline:none;border-color:var(--green)}
+  .selrow::after{content:"▾";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9aa3b6;pointer-events:none}
+  option{background:#161b29;color:#fff}
+  .swap{display:flex;justify-content:center;margin:6px 0 -4px}
+  .swap button{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#cfd6e4;
+    width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:15px;transition:.2s}
+  .swap button:hover{background:var(--green);color:#13310a;transform:rotate(180deg)}
+  #dirBtn{width:100%;margin-top:16px;background:rgba(154,205,50,.12);border:1px solid rgba(154,205,50,.45);
+    color:#dff0bd;border-radius:12px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;display:flex;
+    justify-content:space-between;align-items:center;font-family:inherit;transition:.2s}
+  #dirBtn:hover{background:rgba(154,205,50,.2)}
+  #dirBtn .hint{font-size:12px;color:#a9b89a}
+  #departBtn{width:100%;margin-top:18px;background:linear-gradient(180deg,var(--green),var(--green-deep));
+    color:#10300a;border:none;border-radius:13px;padding:16px;font-size:17px;font-weight:800;letter-spacing:.04em;
+    cursor:pointer;font-family:inherit;box-shadow:0 12px 30px rgba(154,205,50,.32);transition:.15s}
+  #departBtn:hover{filter:brightness(1.06);transform:translateY(-1px)}
+  #departBtn:active{transform:translateY(0)}
+  #departBtn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
+
+  /* ---------- ride controls ---------- */
+  #controls{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:10;
+    display:none;align-items:center;gap:8px;background:rgba(14,18,29,.6);backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.1);border-radius:40px;padding:8px 12px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+  #controls.show{display:flex}
+  .ctrl{background:rgba(255,255,255,.08);border:none;color:#fff;width:42px;height:42px;border-radius:50%;
+    cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:.15s}
+  .ctrl:hover{background:var(--green);color:#13310a}
+  .ctrl.big{width:50px;height:50px;font-size:19px}
+  #volRow{display:flex;align-items:center;gap:6px;padding:0 6px}
+  #vol{width:78px;accent-color:var(--green);cursor:pointer}
+  #exitBtn{font-size:13px;font-weight:600;padding:0 14px;width:auto;border-radius:21px}
+
+  /* ---------- progress ticks ---------- */
+  #progress{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);z-index:8;
+    display:none;gap:5px;align-items:center;max-width:90vw;flex-wrap:wrap;justify-content:center;
+    background:rgba(10,13,22,.45);padding:8px 14px;border-radius:30px;backdrop-filter:blur(6px)}
+  #progress.show{display:flex}
+  .tick{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.22);transition:.4s;position:relative}
+  .tick.done{background:rgba(154,205,50,.55)}
+  .tick.cur{background:var(--green);box-shadow:0 0 0 4px rgba(154,205,50,.3);transform:scale(1.35)}
+  .tick.end{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
+
+  /* ---------- arrived ---------- */
+  #arrived{position:absolute;inset:0;z-index:13;display:none;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 40%, rgba(8,11,22,.3), rgba(5,7,14,.85));text-align:center}
+  #arrived.show{display:flex}
+  #arrived .inner{animation:rise .8s cubic-bezier(.2,.8,.2,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+  #arrived .jp{font-size:clamp(40px,9vw,72px);font-weight:900;color:var(--green);text-shadow:0 6px 30px rgba(0,0,0,.6)}
+  #arrived .en{font-size:16px;letter-spacing:.24em;color:#d6dceb;margin-top:8px}
+  #arrived .dest{font-size:clamp(22px,4vw,30px);font-weight:700;margin-top:20px}
+  #arrived button{margin-top:30px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);
+    color:#fff;border-radius:30px;padding:13px 28px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
+  #arrived button:hover{background:var(--green);color:#13310a;border-color:var(--green)}
+
+  .hideUI{opacity:0!important}
+  @media(max-width:600px){
+    #hud{top:30px;left:30px}
+    #f-bottom{height:72px}
+    #signWrap{top:11%}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+
+  <div id="glass"></div>
+  <div id="frame">
+    <div class="bar" id="f-top"></div>
+    <div class="bar" id="f-left"></div>
+    <div class="bar" id="f-right"></div>
+    <div class="bar" id="f-bottom"></div>
+    <div class="corner" id="c-tl"></div>
+    <div class="corner" id="c-tr"></div>
+  </div>
+
+  <div id="hud">
+    <div class="badge">JR 山手線</div>
+    <div id="dirTag">—</div>
+  </div>
+
+  <div id="signWrap">
+    <div id="sign">
+      <div class="kana"></div>
+      <div class="kanji"></div>
+      <div class="romaji"></div>
+      <div class="lineband">
+        <div class="adj l"></div>
+        <div class="nb"><b>JY</b><span>00</span></div>
+        <div class="adj r"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="subtitle"><div class="jp"></div><div class="en"></div></div>
+
+  <div id="progress"></div>
+
+  <div id="controls">
+    <button class="ctrl" id="exitBtn" title="New journey">✕ 出口</button>
+    <button class="ctrl" id="prevInfo" title="Previous station" style="display:none">⏮</button>
+    <button class="ctrl big" id="playBtn" title="Pause / Play">⏸</button>
+    <button class="ctrl" id="skipBtn" title="Skip to next station">⏭</button>
+    <div id="volRow">
+      <button class="ctrl" id="muteBtn" title="Mute" style="width:34px;height:34px;font-size:15px;background:transparent">🔊</button>
+      <input id="vol" type="range" min="0" max="100" value="80">
+    </div>
+  </div>
+
+  <div id="setup">
+    <div class="card">
+      <h1><span class="jr">JR</span> Yamanote Ride</h1>
+      <p class="sub">Pick a station to depart from and one to arrive at. Sit by the window and ride the loop — melodies, announcements and the city rushing past.</p>
+
+      <div class="field">
+        <label>From / 出発</label>
+        <div class="selrow"><select id="fromSel"></select></div>
+      </div>
+
+      <div class="swap"><button id="swapBtn" title="Swap">⇅</button></div>
+
+      <div class="field">
+        <label>To / 到着</label>
+        <div class="selrow"><select id="toSel"></select></div>
+      </div>
+
+      <button id="dirBtn">
+        <span id="dirLabel">内回り</span>
+        <span class="hint" id="dirHint">— stops</span>
+      </button>
+
+      <button id="departBtn">出発 — Depart</button>
+    </div>
+  </div>
+
+  <div id="arrived">
+    <div class="inner">
+      <div class="jp">到着</div>
+      <div class="en">YOU HAVE ARRIVED</div>
+      <div class="dest" id="arrDest"></div>
+      <button id="againBtn">もう一度 — Ride again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================================================================
+   CONFIG  —  edit station sounds here
+   =================================================================== */
+const STATIONS = [
+  {no:1, kanji:'東京',         kana:'とうきょう',     romaji:'Tokyo',          sounds:{melody:null,announcement:null,ambience:null}},
+  {no:2, kanji:'神田',         kana:'かんだ',         romaji:'Kanda',          sounds:{melody:null,announcement:null,ambience:null}},
+  {no:3, kanji:'秋葉原',       kana:'あきはばら',     romaji:'Akihabara',      sounds:{melody:null,announcement:null,ambience:null}},
+  {no:4, kanji:'御徒町',       kana:'おかちまち',     romaji:'Okachimachi',    sounds:{melody:null,announcement:null,ambience:null}},
+  {no:5, kanji:'上野',         kana:'うえの',         romaji:'Ueno',           sounds:{melody:null,announcement:null,ambience:null}},
+  {no:6, kanji:'鶯谷',         kana:'うぐいすだに',   romaji:'Uguisudani',     sounds:{melody:null,announcement:null,ambience:null}},
+  {no:7, kanji:'日暮里',       kana:'にっぽり',       romaji:'Nippori',        sounds:{melody:null,announcement:null,ambience:null}},
+  {no:8, kanji:'西日暮里',     kana:'にしにっぽり',   romaji:'Nishi-Nippori',  sounds:{melody:null,announcement:null,ambience:null}},
+  {no:9, kanji:'田端',         kana:'たばた',         romaji:'Tabata',         sounds:{melody:null,announcement:null,ambience:null}},
+  {no:10,kanji:'駒込',         kana:'こまごめ',       romaji:'Komagome',       sounds:{melody:null,announcement:null,ambience:null}},
+  {no:11,kanji:'巣鴨',         kana:'すがも',         romaji:'Sugamo',         sounds:{melody:null,announcement:null,ambience:null}},
+  {no:12,kanji:'大塚',         kana:'おおつか',       romaji:'Otsuka',         sounds:{melody:null,announcement:null,ambience:null}},
+  {no:13,kanji:'池袋',         kana:'いけぶくろ',     romaji:'Ikebukuro',      sounds:{melody:null,announcement:null,ambience:null}},
+  {no:14,kanji:'目白',         kana:'めじろ',         romaji:'Mejiro',         sounds:{melody:null,announcement:null,ambience:null}},
+  {no:15,kanji:'高田馬場',     kana:'たかだのばば',   romaji:'Takadanobaba',   sounds:{melody:null,announcement:null,ambience:null}},
+  {no:16,kanji:'新大久保',     kana:'しんおおくぼ',   romaji:'Shin-Okubo',     sounds:{melody:null,announcement:null,ambience:null}},
+  {no:17,kanji:'新宿',         kana:'しんじゅく',     romaji:'Shinjuku',       sounds:{melody:null,announcement:null,ambience:null}},
+  {no:18,kanji:'代々木',       kana:'よよぎ',         romaji:'Yoyogi',         sounds:{melody:null,announcement:null,ambience:null}},
+  {no:19,kanji:'原宿',         kana:'はらじゅく',     romaji:'Harajuku',       sounds:{melody:null,announcement:null,ambience:null}},
+  {no:20,kanji:'渋谷',         kana:'しぶや',         romaji:'Shibuya',        sounds:{melody:null,announcement:null,ambience:null}},
+  {no:21,kanji:'恵比寿',       kana:'えびす',         romaji:'Ebisu',          sounds:{melody:null,announcement:null,ambience:null}},
+  {no:22,kanji:'目黒',         kana:'めぐろ',         romaji:'Meguro',         sounds:{melody:null,announcement:null,ambience:null}},
+  {no:23,kanji:'五反田',       kana:'ごたんだ',       romaji:'Gotanda',        sounds:{melody:null,announcement:null,ambience:null}},
+  {no:24,kanji:'大崎',         kana:'おおさき',       romaji:'Osaki',          sounds:{melody:null,announcement:null,ambience:null}},
+  {no:25,kanji:'品川',         kana:'しながわ',       romaji:'Shinagawa',      sounds:{melody:null,announcement:null,ambience:null}},
+  {no:26,kanji:'高輪ゲートウェイ',kana:'たかなわゲートウェイ',romaji:'Takanawa Gateway',sounds:{melody:null,announcement:null,ambience:null}},
+  {no:27,kanji:'田町',         kana:'たまち',         romaji:'Tamachi',        sounds:{melody:null,announcement:null,ambience:null}},
+  {no:28,kanji:'浜松町',       kana:'はままつちょう', romaji:'Hamamatsucho',   sounds:{melody:null,announcement:null,ambience:null}},
+  {no:29,kanji:'新橋',         kana:'しんばし',       romaji:'Shimbashi',      sounds:{melody:null,announcement:null,ambience:null}},
+  {no:30,kanji:'有楽町',       kana:'ゆうらくちょう', romaji:'Yurakucho',      sounds:{melody:null,announcement:null,ambience:null}},
+];
+
+const SHARED = {
+  doorChime: null,        // short chime on departure (synth fallback if null)
+  transitAmbience: null,  // looping running-train sound (overrides synth clatter if set)
+};
+
+// TIMING (ms per phase) and SPEED — tweak the feel of the ride
+const TIMING = { depart:4200, transit:5200, arrive:3600, dwell:2600 };
+const SPEED  = { cruise:270, idleDrift:26 };   // px/sec
+/* =================================================================== */
+
+
+const N = STATIONS.length;
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const pad2 = n => String(n).padStart(2,'0');
+function smooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
+function hash(n){let x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* =========================================================
+   AUDIO ENGINE
+   ========================================================= */
+const Audio_ = {
+  ctx:null, master:null, melodyG:null, announceG:null, transitG:null, stationG:null,
+  buffers:{}, noiseBuf:null, brownLoop:null,
+  rumbleSrc:null, fileRumble:false, lastSpeed:0, muted:false, started:false,
+
+  init(){
+    if(this.started) return;
+    const C = window.AudioContext||window.webkitAudioContext;
+    const ctx = this.ctx = new C();
+    this.master = ctx.createGain();   this.master.gain.value = 0.8;
+    this.master.connect(ctx.destination);
+    this.melodyG   = ctx.createGain(); this.melodyG.gain.value=0.9;   this.melodyG.connect(this.master);
+    this.announceG = ctx.createGain(); this.announceG.gain.value=0.9; this.announceG.connect(this.master);
+    this.transitG  = ctx.createGain(); this.transitG.gain.value=0;    this.transitG.connect(this.master);
+    this.stationG  = ctx.createGain(); this.stationG.gain.value=0;     this.stationG.connect(this.master);
+
+    this.noiseBuf  = this._noise(2,'white');
+    this.brownLoop = this._noise(3,'brown');
+
+    // continuous rumble (synth) OR file ambience
+    if(SHARED.transitAmbience){
+      this.fileRumble = true;
+      this._loadBuffer(SHARED.transitAmbience).then(buf=>{
+        if(!buf){ this.fileRumble=false; this._startSynthRumble(); return; }
+        const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true;
+        s.connect(this.transitG); s.start(); this.rumbleSrc=s;
+      });
+    } else {
+      this._startSynthRumble();
+    }
+    // station hum (synth, lowpassed brown)
+    const hum=ctx.createBufferSource(); hum.buffer=this.brownLoop; hum.loop=true;
+    const hlp=ctx.createBiquadFilter(); hlp.type='lowpass'; hlp.frequency.value=520;
+    const hg=ctx.createGain(); hg.gain.value=0.5;
+    hum.connect(hlp).connect(hg).connect(this.stationG); hum.start();
+
+    setInterval(()=>this._clackScheduler(),40);
+    this.nextClack = 0;
+    this.started = true;
+  },
+
+  _startSynthRumble(){
+    const ctx=this.ctx;
+    const s=ctx.createBufferSource(); s.buffer=this.brownLoop; s.loop=true;
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=330;
+    s.connect(lp).connect(this.transitG); s.start(); this.rumbleSrc=s;
+  },
+
+  _noise(sec,type){
+    const ctx=this.ctx, len=ctx.sampleRate*sec, buf=ctx.createBuffer(1,len,ctx.sampleRate), d=buf.getChannelData(0);
+    let last=0;
+    for(let i=0;i<len;i++){const w=Math.random()*2-1;
+      if(type==='brown'){last=(last+0.02*w)/1.02; d[i]=last*3.4;} else d[i]=w;}
+    return buf;
+  },
+
+  resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
+
+  setVolume(v){ if(this.master) this.master.gain.setTargetAtTime(this.muted?0:v, this.ctx.currentTime, .05); this._vol=v; },
+  setMuted(m){ this.muted=m; this.setVolume(this._vol??0.8); },
+
+  /* gains follow train speed each frame */
+  updateSpeed(spd, playing){
+    this.lastSpeed=spd;
+    if(!this.ctx) return;
+    const t=this.ctx.currentTime, sN=Math.min(1,spd/SPEED.cruise);
+    this.transitG.gain.setTargetAtTime(playing? sN*0.9 : 0, t, 0.25);
+    this.stationG.gain.setTargetAtTime(playing? (1-sN)*0.45 : 0, t, 0.35);
+  },
+
+  _clackScheduler(){
+    if(!this.ctx || this.fileRumble) return;
+    const t=this.ctx.currentTime, sN=Math.min(1,this.lastSpeed/SPEED.cruise);
+    if(sN<0.14){ this.nextClack=t+0.1; return; }
+    const interval=0.6-0.32*sN;
+    while(this.nextClack < t+0.2){
+      this._clack(this.nextClack, 0.22*sN);
+      this._clack(this.nextClack+0.16, 0.18*sN);
+      this.nextClack += interval;
+    }
+  },
+  _clack(when, amp){
+    const ctx=this.ctx;
+    const src=ctx.createBufferSource(); src.buffer=this.noiseBuf;
+    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=800+Math.random()*500; bp.Q.value=1.1;
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.005); g.gain.exponentialRampToValueAtTime(0.001,when+0.12);
+    src.connect(bp).connect(g).connect(this.master);
+    src.start(when, Math.random()*1.5, 0.13);
+    const o=ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(68,when);
+    const g2=ctx.createGain();
+    g2.gain.setValueAtTime(0,when); g2.gain.linearRampToValueAtTime(amp*0.8,when+0.006); g2.gain.exponentialRampToValueAtTime(0.001,when+0.14);
+    o.connect(g2).connect(this.master); o.start(when); o.stop(when+0.16);
+  },
+
+  async _loadBuffer(url){
+    if(this.buffers[url]!==undefined) return this.buffers[url];
+    try{
+      const r=await fetch(url); const a=await r.arrayBuffer();
+      const b=await this.ctx.decodeAudioData(a);
+      this.buffers[url]=b; return b;
+    }catch(e){ console.warn('audio load failed:',url,e); this.buffers[url]=null; return null; }
+  },
+  _playBuffer(url,dest){
+    this._loadBuffer(url).then(b=>{ if(!b) return;
+      const s=this.ctx.createBufferSource(); s.buffer=b; s.connect(dest); s.start();
+    });
+  },
+
+  /* ---- one-shots ---- */
+  melody(st){
+    this.resume();
+    if(st.sounds.melody){ this._playBuffer(st.sounds.melody,this.melodyG); }
+    else this._synthMelody(st.no);
+  },
+  announcement(st){
+    this.resume();
+    if(st.sounds.announcement){ this._playBuffer(st.sounds.announcement,this.announceG); }
+    else this._synthChime();
+  },
+  doorChime(){
+    this.resume();
+    if(SHARED.doorChime){ this._playBuffer(SHARED.doorChime,this.announceG); return; }
+    const t0=this.ctx.currentTime;
+    for(let i=0;i<3;i++) this._tone(680,t0+i*0.16,0.13,0.16,this.announceG,'sine');
+  },
+
+  _marimba(freq,when,dur,dest){
+    const ctx=this.ctx;
+    const o=ctx.createOscillator(); o.type='triangle'; o.frequency.value=freq;
+    const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=freq*2.01;
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=freq*4;
+    const g=ctx.createGain(); const g2=ctx.createGain(); g2.gain.value=0.25;
+    g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.5,when+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0008,when+dur);
+    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(dest);
+    o.start(when); o2.start(when); o.stop(when+dur+0.05); o2.stop(when+dur+0.05);
+  },
+  _synthMelody(seed){
+    const ctx=this.ctx, t0=ctx.currentTime+0.03;
+    const penta=[0,2,4,7,9,12,14,16], base=523.25;
+    const r=mulberry(seed*977+13);
+    const n=6+Math.floor(r()*4); let time=t0; let prev=-1;
+    for(let i=0;i<n;i++){
+      let idx=Math.floor(r()*penta.length); if(idx===prev) idx=(idx+1)%penta.length; prev=idx;
+      const freq=base*Math.pow(2,penta[idx]/12);
+      this._marimba(freq,time,0.55,this.melodyG);
+      time += 0.17+r()*0.07;
+    }
+  },
+  _bell(freq,when,dest){
+    const ctx=this.ctx;
+    [1,2.0,3.01].forEach((m,i)=>{
+      const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=freq*m;
+      const g=ctx.createGain(); const amp=[0.5,0.18,0.08][i];
+      g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0006,when+1.3);
+      o.connect(g).connect(dest); o.start(when); o.stop(when+1.4);
+    });
+  },
+  _synthChime(){ const t=this.ctx.currentTime+0.02; this._bell(987.77,t,this.announceG); this._bell(739.99,t+0.46,this.announceG); },
+  _tone(freq,when,dur,amp,dest,type){
+    const ctx=this.ctx, o=ctx.createOscillator(); o.type=type||'sine'; o.frequency.value=freq;
+    const g=ctx.createGain(); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,when+dur);
+    o.connect(g).connect(dest); o.start(when); o.stop(when+dur+0.03);
+  },
+};
+
+/* =========================================================
+   SCENE  (canvas parallax cityscape)
+   ========================================================= */
+const Scene = {
+  cv:null, ctx:null, W:0, H:0, dpr:1, worldX:0, time:0, horizon:0,
+  stars:[],
+  init(){
+    this.cv=$('#scene'); this.ctx=this.cv.getContext('2d');
+    this.resize(); window.addEventListener('resize',()=>this.resize());
+    for(let i=0;i<120;i++) this.stars.push({x:Math.random(),y:Math.random()*0.45,r:Math.random()*1.3+0.2,t:Math.random()*6.28});
+  },
+  resize(){
+    this.dpr=Math.min(2,window.devicePixelRatio||1);
+    this.W=window.innerWidth; this.H=window.innerHeight;
+    this.cv.width=this.W*this.dpr; this.cv.height=this.H*this.dpr;
+    this.ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
+    this.horizon=this.H*0.60;
+  },
+  advance(spd,dt){ this.worldX += spd*dt; this.time += dt; },
+
+  draw(spd){
+    const c=this.ctx, W=this.W, H=this.H, hz=this.horizon, sN=Math.min(1,spd/SPEED.cruise);
+    c.clearRect(0,0,W,H);
+
+    // sway
+    const bob = Math.sin(this.time*2.1)*2.2*sN + Math.sin(this.time*5.3)*0.6*sN;
+    c.save(); c.translate(0,bob);
+
+    // sky
+    const sky=c.createLinearGradient(0,-4,0,hz+40);
+    sky.addColorStop(0,'#141934'); sky.addColorStop(0.45,'#33365e');
+    sky.addColorStop(0.8,'#7a5b73'); sky.addColorStop(1,'#e0a173');
+    c.fillStyle=sky; c.fillRect(0,-6,W,hz+46);
+    // glow near horizon
+    const glow=c.createRadialGradient(W*0.7,hz,10,W*0.7,hz,W*0.6);
+    glow.addColorStop(0,'rgba(255,196,140,.5)'); glow.addColorStop(1,'rgba(255,196,140,0)');
+    c.fillStyle=glow; c.fillRect(0,0,W,hz+40);
+    // stars
+    for(const s of this.stars){const tw=0.5+0.5*Math.sin(this.time*1.5+s.t);
+      c.globalAlpha=tw*0.7*(1-s.y/0.45); c.fillStyle='#fff';
+      c.beginPath(); c.arc(s.x*W,s.y*H,s.r,0,6.28); c.fill();}
+    c.globalAlpha=1;
+    // moon
+    c.fillStyle='rgba(248,240,220,.9)'; c.beginPath(); c.arc(W*0.18,hz*0.32,26,0,6.28); c.fill();
+    c.fillStyle='rgba(248,240,220,.12)'; c.beginPath(); c.arc(W*0.18,hz*0.32,46,0,6.28); c.fill();
+
+    // building layers (back -> front)
+    this._buildings({parallax:0.14, cellW:150, minH:60, maxH:150, color:'#3a3a55', win:false, seed:10, landmarks:true});
+    this._buildings({parallax:0.34, cellW:120, minH:80, maxH:230, color:'#262738', win:true,  seed:55, winColor:'#ffca7a', winChance:0.35});
+    this._buildings({parallax:0.66, cellW:150, minH:120,maxH:320, color:'#15161f', win:true,  seed:120,winColor:'#bcd4ff', winChance:0.28});
+
+    // ground
+    const gr=c.createLinearGradient(0,hz,0,H);
+    gr.addColorStop(0,'#0d0e16'); gr.addColorStop(1,'#05060c');
+    c.fillStyle=gr; c.fillRect(0,hz,W,H-hz+8);
+
+    // poles & wires (fast)
+    this._wires(sN);
+
+    // speed streaks
+    if(sN>0.25){
+      c.strokeStyle='rgba(255,255,255,'+(0.05*sN)+')'; c.lineWidth=1;
+      for(let i=0;i<6;i++){const y=hz*0.3+ (this.worldX*0.4+i*70)%(hz*0.7);
+        const len=40+sN*120; const x=(this.worldX*2.0+i*220)%(W+len)-len;
+        c.beginPath(); c.moveTo(x,y); c.lineTo(x+len,y); c.stroke();}
+    }
+    c.restore();
+  },
+
+  _buildings(L){
+    const c=this.ctx, W=this.W, hz=this.horizon, off=this.worldX*L.parallax;
+    const start=Math.floor(off/L.cellW)-1, end=start+Math.ceil(W/L.cellW)+2;
+    for(let cell=start;cell<=end;cell++){
+      const x=cell*L.cellW-off;
+      const r1=hash(cell*1.7+L.seed), r2=hash(cell*3.1+L.seed+0.5);
+      // landmark?
+      if(L.landmarks && hash(cell*5.3+L.seed)>0.93){
+        if(cell%2===0) this._tower(x+L.cellW*0.3,hz,1+r1*0.4);
+        else this._skytree(x+L.cellW*0.3,hz,1+r1*0.3);
+        continue;
+      }
+      const h=L.minH+r1*(L.maxH-L.minH);
+      const bw=L.cellW*(0.66+r2*0.28);
+      const y=hz-h;
+      c.fillStyle=L.color; c.fillRect(x,y,bw,h+6);
+      // rooftop bits
+      if(r2>0.6){c.fillRect(x+bw*0.2,y-6-r1*8,4,7); }
+      // windows
+      if(L.win){
+        const cols=Math.max(2,Math.floor(bw/13)), rows=Math.floor(h/16);
+        for(let wx=0;wx<cols;wx++)for(let wy=0;wy<rows;wy++){
+          if(hash(cell*7.3+wx*13.7+wy*0.9+L.seed) < L.winChance){
+            c.fillStyle=L.winColor; c.globalAlpha=0.55+hash(cell+wx+wy)*0.4;
+            c.fillRect(x+5+wx*13, y+8+wy*16, 6, 8);
+          }
+        }
+        c.globalAlpha=1;
+      }
+    }
+  },
+  _tower(x,hz,s){ // Tokyo Tower silhouette
+    const c=this.ctx, h=190*s, w=70*s, y=hz-h;
+    c.fillStyle='#7a2e26';
+    c.beginPath(); c.moveTo(x,hz); c.lineTo(x+w*0.5,y); c.lineTo(x+w,hz);
+    c.lineTo(x+w*0.62,hz); c.lineTo(x+w*0.5,y+h*0.55); c.lineTo(x+w*0.38,hz); c.closePath(); c.fill();
+    c.fillStyle='#8a352b'; c.fillRect(x+w*0.42,y-14*s,w*0.16,16*s);
+    c.fillStyle='rgba(255,120,90,.8)'; c.fillRect(x+w*0.47,y-22*s,3,8*s);
+  },
+  _skytree(x,hz,s){
+    const c=this.ctx, h=300*s, y=hz-h;
+    c.fillStyle='#2a3340';
+    c.beginPath(); c.moveTo(x+10,hz); c.lineTo(x+18,y+h*0.35); c.lineTo(x+22,y+h*0.35); c.lineTo(x+30,hz); c.closePath(); c.fill();
+    c.fillRect(x+18,y+30,4,h*0.35);
+    c.fillStyle='#37424f'; c.beginPath(); c.arc(x+20,y+h*0.34,11*s,0,6.28); c.fill();
+    c.fillStyle='rgba(150,200,255,.5)'; c.fillRect(x+19,y,2,30);
+  },
+  _wires(sN){
+    const c=this.ctx, W=this.W, hz=this.horizon, off=this.worldX*1.3, sp=270;
+    const start=Math.floor(off/sp)-1, end=start+Math.ceil(W/sp)+2;
+    const topY=hz-150;
+    c.strokeStyle='rgba(8,9,14,.85)'; c.lineWidth=2;
+    // wires
+    c.beginPath();
+    for(let p=start;p<=end;p++){
+      const x=p*sp-off, x2=(p+1)*sp-off;
+      for(let k=-1;k<=1;k++){
+        const yo=k*8;
+        c.moveTo(x,topY+yo); c.quadraticCurveTo((x+x2)/2,topY+yo+26,x2,topY+yo);
+      }
+    }
+    c.stroke();
+    // poles
+    for(let p=start;p<=end;p++){
+      const x=p*sp-off;
+      c.fillStyle='#0a0b11'; c.fillRect(x-3,topY-14,6,hz-topY+14);
+      c.fillRect(x-26,topY-2,52,5);
+      c.fillRect(x-18,topY+12,36,4);
+    }
+  }
+};
+
+/* =========================================================
+   JOURNEY  (state machine)
+   ========================================================= */
+const Ride = {
+  route:[], dir:1, steps:[], idx:0, phaseStart:0, playing:false, riding:false,
+  pausedAt:0, fromIdx:0, toIdx:16, lastT:performance.now(),
+
+  /* route + direction */
+  computeDir(){
+    const f=this.fromIdx,t=this.toIdx;
+    const fwd=(t-f+N)%N, bwd=(f-t+N)%N;
+    this.dir = (this.autoDir!==undefined)? this.autoDir : (fwd<=bwd?1:-1);
+  },
+  buildRoute(){
+    const r=[]; let i=this.fromIdx; r.push(i);
+    if(this.fromIdx===this.toIdx){ this.route=[i]; return; }
+    while(i!==this.toIdx){ i=(i+this.dir+N)%N; r.push(i); }
+    this.route=r;
+  },
+  buildSteps(){
+    const s=[]; const R=this.route;
+    s.push({type:'depart',rpos:0});
+    for(let k=1;k<R.length;k++){
+      s.push({type:'transit',rpos:k});
+      s.push({type:'arrive',rpos:k});
+      s.push({type:'dwell',rpos:k,final:(k===R.length-1)});
+      if(k<R.length-1) s.push({type:'depart',rpos:k});
+    }
+    this.steps=s;
+  },
+  stationOf(step){ return STATIONS[this.route[step.rpos]]; },
+
+  start(){
+    Audio_.init(); Audio_.resume();
+    this.computeDir(); this.buildRoute(); this.buildSteps();
+    this.idx=0; this.riding=true; this.playing=true;
+    UI.enterRide();
+    UI.buildProgress(this.route);
+    this.phaseStart=performance.now();
+    this.onStepStart();
+  },
+  finish(){
+    this.playing=false;
+    UI.showArrived(STATIONS[this.route[this.route.length-1]]);
+  },
+  exit(){
+    this.riding=false; this.playing=false;
+    UI.exitRide();
+  },
+
+  onStepStart(){
+    const step=this.steps[this.idx]; if(!step) return this.finish();
+    const st=this.stationOf(step);
+    if(step.type==='depart'){
+      UI.showSign(step.rpos);
+      Audio_.doorChime();
+      setTimeout(()=>{ if(this.playing) Audio_.melody(st); }, SHARED.doorChime?0:520);
+      UI.clearSubtitle();
+      this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
+      if(step.rpos===0) UI.updateProgress(0);
+    }
+    else if(step.type==='transit'){ UI.hideSign(); UI.clearSubtitle(); }
+    else if(step.type==='arrive'){
+      UI.showSign(step.rpos);
+      Audio_.announcement(st);
+      UI.updateProgress(step.rpos);
+      const last = step.rpos===this.route.length-1;
+      UI.subtitle(`まもなく、${st.kanji}。`, (last?'Final stop · ':'Arriving at ')+st.romaji);
+    }
+    else if(step.type==='dwell'){
+      if(step.final){ setTimeout(()=>{ if(this.playing) this.finish(); }, 600); }
+      else UI.subtitle(`${st.kanji}`, 'Doors opening');
+    }
+  },
+
+  duration(){ const t=this.steps[this.idx]; return TIMING[t.type]; },
+
+  tick(now){
+    let dt=(now-this.lastT)/1000; this.lastT=now;
+    if(dt>0.1) dt=0.1;
+
+    let spd=0;
+    if(!this.riding){ spd=SPEED.idleDrift; }
+    else if(this.playing){
+      const step=this.steps[this.idx];
+      const p=(now-this.phaseStart)/this.duration();
+      if(step){
+        if(step.type==='depart') spd=SPEED.cruise*smooth(p);
+        else if(step.type==='transit') spd=SPEED.cruise;
+        else if(step.type==='arrive') spd=SPEED.cruise*smooth(1-p);
+        else spd=0;
+      }
+      if(p>=1){ this.idx++; this.phaseStart=now;
+        if(this.idx>=this.steps.length) this.finish(); else this.onStepStart(); }
+    } else { spd=0; } // paused
+
+    Scene.advance(spd,dt);
+    Scene.draw(spd);
+    Audio_.updateSpeed(spd, this.riding && this.playing);
+    requestAnimationFrame(t=>this.tick(t));
+  },
+
+  togglePlay(){
+    if(!this.riding) return;
+    if(this.playing){ this.playing=false; this.pausedAt=performance.now(); UI.setPlayIcon(false); }
+    else { this.playing=true; this.phaseStart+=performance.now()-this.pausedAt; UI.setPlayIcon(true);
+      Audio_.resume(); }
+  },
+  skip(){
+    if(!this.riding||!this.playing) return;
+    // jump to next 'arrive' step
+    for(let j=this.idx+1;j<this.steps.length;j++){
+      if(this.steps[j].type==='arrive'){ this.idx=j; this.phaseStart=performance.now(); clearTimeout(this._hideSignTimer); this.onStepStart(); return; }
+    }
+    this.finish();
+  }
+};
+
+/* =========================================================
+   UI
+   ========================================================= */
+const UI = {
+  initSelects(){
+    const f=$('#fromSel'), t=$('#toSel');
+    STATIONS.forEach((s,i)=>{
+      const o1=document.createElement('option'); o1.value=i; o1.textContent=`JY${pad2(s.no)} ${s.kanji} · ${s.romaji}`;
+      const o2=o1.cloneNode(true); f.appendChild(o1); t.appendChild(o2);
+    });
+    f.value=0; t.value=16;
+    Ride.fromIdx=0; Ride.toIdx=16;
+    f.onchange=()=>{Ride.fromIdx=+f.value; Ride.autoDir=undefined; this.refreshDir();};
+    t.onchange=()=>{Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
+    $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromIdx=+f.value; Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
+    $('#dirBtn').onclick=()=>{ this.flipDir(); };
+    this.refreshDir();
+  },
+  refreshDir(){
+    const f=Ride.fromIdx,t=Ride.toIdx;
+    const fwd=(t-f+N)%N, bwd=(f-t+N)%N;
+    if(Ride.autoDir===undefined) Ride.dir=(fwd<=bwd?1:-1);
+    else Ride.dir=Ride.autoDir;
+    const stops = Ride.dir>0?fwd:bwd;
+    const label = Ride.dir>0?'内回り (Inner · CCW)':'外回り (Outer · CW)';
+    $('#dirLabel').textContent=label;
+    $('#dirHint').textContent = (f===t)? 'same station' : `${stops} stop${stops!==1?'s':''}`;
+    $('#dirTag').textContent = Ride.dir>0?'内回り':'外回り';
+    $('#departBtn').disabled = (f===t);
+  },
+  flipDir(){ Ride.autoDir = (Ride.dir>0?-1:1); this.refreshDir(); },
+
+  enterRide(){
+    $('#setup').style.opacity='0'; $('#setup').style.pointerEvents='none';
+    setTimeout(()=>$('#setup').style.display='none',600);
+    $('#controls').classList.add('show');
+    $('#progress').classList.add('show');
+    $('#arrived').classList.remove('show');
+    this.setPlayIcon(true);
+  },
+  exitRide(){
+    $('#controls').classList.remove('show');
+    $('#progress').classList.remove('show');
+    $('#arrived').classList.remove('show');
+    this.hideSign(); this.clearSubtitle();
+    $('#setup').style.display='flex';
+    requestAnimationFrame(()=>{ $('#setup').style.opacity='1'; $('#setup').style.pointerEvents='auto'; });
+  },
+
+  showSign(rpos){
+    const R=Ride.route, st=STATIONS[R[rpos]];
+    const prev = rpos>0? STATIONS[R[rpos-1]] : null;
+    const next = rpos<R.length-1? STATIONS[R[rpos+1]] : null;
+    const sign=$('#sign');
+    sign.querySelector('.kana').textContent=st.kana;
+    sign.querySelector('.kanji').textContent=st.kanji;
+    sign.querySelector('.romaji').textContent=st.romaji;
+    sign.querySelector('.nb span').textContent=pad2(st.no);
+    sign.querySelector('.adj.l').innerHTML = prev? `← ${prev.kanji}` : '・';
+    sign.querySelector('.adj.r').innerHTML = next? `${next.kanji} →` : '終点';
+    $('#signWrap').classList.add('show');
+  },
+  hideSign(){ $('#signWrap').classList.remove('show'); },
+
+  subtitle(jp,en){ const s=$('#subtitle'); s.querySelector('.jp').textContent=jp; s.querySelector('.en').textContent=en; s.classList.add('show'); },
+  clearSubtitle(){ $('#subtitle').classList.remove('show'); },
+
+  buildProgress(route){
+    const p=$('#progress'); p.innerHTML='';
+    route.forEach((si,k)=>{ const d=document.createElement('div'); d.className='tick'+(k===route.length-1?' end':''); d.dataset.k=k; p.appendChild(d); });
+  },
+  updateProgress(rpos){
+    document.querySelectorAll('#progress .tick').forEach((el,k)=>{
+      el.classList.toggle('done', k<rpos);
+      el.classList.toggle('cur', k===rpos);
+    });
+  },
+
+  setPlayIcon(playing){ $('#playBtn').textContent = playing?'⏸':'▶'; },
+
+  showArrived(st){
+    $('#arrDest').textContent = `${st.kanji} · ${st.romaji}`;
+    $('#arrived').classList.add('show');
+    this.hideSign(); this.clearSubtitle();
+    $('#controls').classList.remove('show');
+    $('#progress').classList.remove('show');
+  },
+
+  bindControls(){
+    $('#departBtn').onclick=()=>Ride.start();
+    $('#playBtn').onclick=()=>Ride.togglePlay();
+    $('#skipBtn').onclick=()=>Ride.skip();
+    $('#exitBtn').onclick=()=>Ride.exit();
+    $('#againBtn').onclick=()=>{ $('#arrived').classList.remove('show'); Ride.exit(); };
+    $('#vol').oninput=e=>{ Audio_.setVolume(+e.target.value/100); };
+    $('#muteBtn').onclick=()=>{
+      const m=!Audio_.muted; Audio_.setMuted(m);
+      $('#muteBtn').textContent = m?'🔇':'🔊';
+    };
+  }
+};
+
+/* ---------- boot ---------- */
+Scene.init();
+UI.initSelects();
+UI.bindControls();
+Ride.lastT=performance.now();
+requestAnimationFrame(t=>Ride.tick(t));
+</script>
+</body>
+</html>
