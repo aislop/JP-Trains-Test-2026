@@ -226,10 +226,10 @@
   </div>
 
   <div id="hud">
-    <div class="badge" id="lineBadge">JR 山手線</div>
+    <div class="badge" id="lineBadge">JR Yamanote Line</div>
     <div id="dirTag">—</div>
-    <div id="phaseTag">待機中</div>
-    <div id="transferTag">乗換</div>
+    <div id="phaseTag">Waiting</div>
+    <div id="transferTag">Transfer</div>
   </div>
 
   <div id="signWrap">
@@ -250,7 +250,7 @@
   <div id="progress"></div>
 
   <div id="controls">
-    <button class="ctrl" id="exitBtn" title="New journey">✕ 出口</button>
+    <button class="ctrl" id="exitBtn" title="New journey">✕ Exit</button>
     <button class="ctrl" id="prevInfo" title="Previous station" style="display:none">⏮</button>
     <button class="ctrl big" id="playBtn" title="Pause / Play">⏸</button>
     <button class="ctrl" id="skipBtn" title="Skip to next station">⏭</button>
@@ -266,23 +266,23 @@
       <p class="sub">The Yamanote Line starts automatically. Choose stations if you want a different Yamanote ride — melodies, announcements and the city rushing past.</p>
 
       <div class="field">
-        <label>From / 出発</label>
+        <label>From</label>
         <div class="selrow"><select id="fromSel"></select></div>
       </div>
 
       <div class="swap"><button id="swapBtn" title="Swap">⇅</button></div>
 
       <div class="field">
-        <label>To / 到着</label>
+        <label>To</label>
         <div class="selrow"><select id="toSel"></select></div>
       </div>
 
       <button id="dirBtn">
-        <span id="dirLabel">内回り</span>
+        <span id="dirLabel">Inner loop</span>
         <span class="hint" id="dirHint">— stops</span>
       </button>
 
-      <button id="departBtn">出発 — Depart</button>
+      <button id="departBtn">Depart</button>
 
       <div id="routePreview" aria-live="polite">
         <div class="meta"><span id="routeMeta">—</span><span id="routeTime">—</span></div>
@@ -294,10 +294,10 @@
 
   <div id="arrived">
     <div class="inner">
-      <div class="jp">到着</div>
+      <div class="jp">Arrived</div>
       <div class="en">YOU HAVE ARRIVED</div>
       <div class="dest" id="arrDest"></div>
-      <button id="againBtn">もう一度 — Ride again</button>
+      <button id="againBtn">Ride again</button>
     </div>
   </div>
 </div>
@@ -368,17 +368,17 @@ const CHUO_STATIONS = [
 ];
 
 const LINES = {
-  JY: {id:'JY', name:'Yamanote Line', kanji:'山手線', badge:'JR 山手線', color:'#9ACD32', deep:'#6fa01f', circular:true, forward:'内回り (Inner · CCW)', reverse:'外回り (Outer · CW)', forwardShort:'内回り', reverseShort:'外回り', stations:YAMANOTE_STATIONS},
-  JC: {id:'JC', name:'Chūō Line', kanji:'中央線', badge:'JR 中央線', color:'#F15A24', deep:'#B84218', circular:false, forward:'下り (Westbound · Takao)', reverse:'上り (Eastbound · Tokyo)', forwardShort:'下り', reverseShort:'上り', stations:CHUO_STATIONS},
+  JY: {id:'JY', name:'Yamanote Line', kanji:'山手線', badge:'JR Yamanote Line', color:'#9ACD32', deep:'#6fa01f', circular:true, forward:'Inner loop · counterclockwise', reverse:'Outer loop · clockwise', forwardShort:'Inner loop', reverseShort:'Outer loop', stations:YAMANOTE_STATIONS},
+  JC: {id:'JC', name:'Chūō Line', kanji:'中央線', badge:'JR Chūō Line', color:'#F15A24', deep:'#B84218', circular:false, forward:'Westbound · toward Takao', reverse:'Eastbound · toward Tokyo', forwardShort:'Westbound', reverseShort:'Eastbound', stations:CHUO_STATIONS},
 };
 let currentLineId = 'JY';
 const currentLine = () => LINES[currentLineId];
 const stations = () => currentLine().stations;
 const TRANSFER_LINES = {
-  JC: {name:'Chūō Line', kanji:'中央線', badge:'JR 中央線', color:'#F15A24', deep:'#B84218'},
-  JK: {name:'Keihin-Tōhoku Line', kanji:'京浜東北線', badge:'JR 京浜東北線', color:'#00A7E1', deep:'#007AA5'},
-  JA: {name:'Saikyō Line', kanji:'埼京線', badge:'JR 埼京線', color:'#2E8B57', deep:'#19603B'},
-  JS: {name:'Shōnan-Shinjuku Line', kanji:'湘南新宿ライン', badge:'JR 湘南新宿', color:'#E87722', deep:'#AF5412'},
+  JC: {name:'Chūō Line', kanji:'中央線', badge:'JR Chūō Line', color:'#F15A24', deep:'#B84218'},
+  JK: {name:'Keihin-Tōhoku Line', kanji:'京浜東北線', badge:'JR Keihin-Tōhoku Line', color:'#00A7E1', deep:'#007AA5'},
+  JA: {name:'Saikyō Line', kanji:'埼京線', badge:'JR Saikyō Line', color:'#2E8B57', deep:'#19603B'},
+  JS: {name:'Shōnan-Shinjuku Line', kanji:'湘南新宿ライン', badge:'JR Shōnan-Shinjuku Line', color:'#E87722', deep:'#AF5412'},
 };
 const YAMANOTE_TRANSFERS = {
   Tokyo:['JC','JK'],
@@ -783,12 +783,12 @@ const Ride = {
   },
   finish(){
     this.playing=false;
-    UI.setPhase('到着');
+    UI.setPhase('Arrived');
     UI.showArrived(stations()[this.route[this.route.length-1]]);
   },
   exit(){
     this.riding=false; this.playing=false;
-    UI.setPhase('待機中');
+    UI.setPhase('Waiting');
     UI.exitRide();
   },
 
@@ -796,7 +796,7 @@ const Ride = {
     const step=this.steps[this.idx]; if(!step) return this.finish();
     const st=this.stationOf(step);
     if(step.type==='depart'){
-      UI.setPhase('発車メロディ');
+      UI.setPhase('Departure melody');
       UI.showSign(step.rpos);
       Audio_.doorChime();
       setTimeout(()=>{ if(this.playing) Audio_.melody(st); }, SHARED.doorChime?0:520);
@@ -804,19 +804,19 @@ const Ride = {
       this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
       if(step.rpos===0) UI.updateProgress(0);
     }
-    else if(step.type==='transit'){ UI.setPhase('走行中'); UI.applyLineTheme(); UI.hideSign(); UI.clearSubtitle(); }
+    else if(step.type==='transit'){ UI.setPhase('In transit'); UI.applyLineTheme(); UI.hideSign(); UI.clearSubtitle(); }
     else if(step.type==='arrive'){
-      UI.setPhase('到着放送');
+      UI.setPhase('Arrival announcement');
       UI.showSign(step.rpos);
       Audio_.announcement(st);
       UI.updateProgress(step.rpos);
       const last = step.rpos===this.route.length-1;
-      UI.subtitle(`まもなく、${st.kanji}。`, (last?'Final stop · ':'Arriving at ')+st.romaji);
+      UI.subtitle(`Arriving soon: ${st.romaji}`, (last?'Final stop · ':'Arriving at ')+st.romaji);
     }
     else if(step.type==='dwell'){
-      UI.setPhase(step.final?'終点':'停車中');
+      UI.setPhase(step.final?'Final stop':'Stopped');
       if(step.final){ setTimeout(()=>{ if(this.playing) this.finish(); }, 600); }
-      else UI.subtitle(`${st.kanji}`, 'Doors opening');
+      else UI.subtitle(st.romaji, 'Doors opening');
     }
   },
 
@@ -911,7 +911,7 @@ const UI = {
     document.documentElement.style.setProperty('--green', line.color);
     document.documentElement.style.setProperty('--green-deep', line.deep);
     $('#lineBadge').textContent=transfer ? `${currentLine().badge} → ${transfer.badge}` : currentLine().badge;
-    $('#transferTag').textContent=transfer ? `乗換 ${transfer.kanji}` : '';
+    $('#transferTag').textContent=transfer ? `Transfer: ${transfer.name}` : '';
     $('#transferTag').classList.toggle('show', !!transfer);
     $('#sign').classList.toggle('transfer-pulse', !!transfer);
     $('#sign .nb b').textContent=transfer ? (Object.keys(TRANSFER_LINES).find(id=>TRANSFER_LINES[id]===transfer) || currentLine().id) : currentLine().id;
@@ -945,7 +945,7 @@ const UI = {
     const travelMs = (f===t || invalid) ? 0 : TIMING.depart + (route.length-1)*(TIMING.transit+TIMING.arrive+TIMING.dwell) + Math.max(0,route.length-2)*TIMING.depart;
     $('#routeMeta').textContent = f===t ? 'Choose a different destination' : invalid ? 'Flip direction to reach this destination' : `${stops} stop${stops!==1?'s':''} · ${route.length} station signs`;
     $('#routeTime').textContent = (f===t || invalid) ? '—' : `demo ${formatMs(travelMs)}`;
-    const names = route.map(idx=>stations()[idx].kanji);
+    const names = route.map(idx=>stations()[idx].romaji);
     const compact = names.length>8 ? [...names.slice(0,4),'…',...names.slice(-3)] : names;
     $('#routeStations').innerHTML = compact.map(name=>`<span>${name}</span>`).join('');
     const stationFiles = stations().reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length,0);
@@ -982,8 +982,8 @@ const UI = {
     sign.querySelector('.kanji').textContent=st.kanji;
     sign.querySelector('.romaji').textContent=st.romaji;
     sign.querySelector('.nb span').textContent=pad2(st.no);
-    sign.querySelector('.adj.l').innerHTML = prev? `← ${prev.kanji}` : '・';
-    sign.querySelector('.adj.r').innerHTML = next? `${next.kanji} →` : '終点';
+    sign.querySelector('.adj.l').innerHTML = prev? `← ${prev.romaji}` : '・';
+    sign.querySelector('.adj.r').innerHTML = next? `${next.romaji} →` : 'Final stop';
     $('#signWrap').classList.add('show');
   },
   hideSign(){ $('#signWrap').classList.remove('show'); },
