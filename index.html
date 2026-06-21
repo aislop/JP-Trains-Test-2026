@@ -57,11 +57,15 @@
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 
   /* ---------- glass / reflection ---------- */
-  #glass{position:absolute;inset:0;pointer-events:none;z-index:5;
+  #glass{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;
     box-shadow:inset 0 0 220px rgba(4,6,14,.72);
     background:
       linear-gradient(115deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 60%, rgba(255,255,255,.03) 100%),
       repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 2px, rgba(0,0,0,0) 2px 4px);}
+  #glass::before{content:"";position:absolute;top:-20%;bottom:-20%;left:-30%;width:22%;
+    background:linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.07) 45%, rgba(255,255,255,0) 100%);
+    transform:skewX(-12deg); animation:glassGlint 13s ease-in-out infinite;}
+  @keyframes glassGlint{0%{left:-30%}45%{left:115%}100%{left:115%}}
 
   /* ---------- train interior window frame ---------- */
   #frame{position:absolute;inset:0;pointer-events:none;z-index:6}
@@ -454,7 +458,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
    ========================================================= */
 const Audio_ = {
   ctx:null, master:null, melodyG:null, announceG:null, transitG:null, stationG:null,
-  buffers:{}, durations:{}, noiseBuf:null, brownLoop:null,
+  buffers:{}, durations:{}, brownLoop:null,
   rumbleSrc:null, fileRumble:false, lastSpeed:0, muted:false, started:false,
 
   init(){
@@ -468,7 +472,6 @@ const Audio_ = {
     this.transitG  = ctx.createGain(); this.transitG.gain.value=0;    this.transitG.connect(this.master);
     this.stationG  = ctx.createGain(); this.stationG.gain.value=0;     this.stationG.connect(this.master);
 
-    this.noiseBuf  = this._noise(2,'white');
     this.brownLoop = this._noise(3,'brown');
 
     // continuous rumble (synth) OR file ambience
@@ -488,8 +491,6 @@ const Audio_ = {
     const hg=ctx.createGain(); hg.gain.value=0.5;
     hum.connect(hlp).connect(hg).connect(this.stationG); hum.start();
 
-    setInterval(()=>this._clackScheduler(),40);
-    this.nextClack = 0;
     this.started = true;
   },
 
@@ -520,31 +521,6 @@ const Audio_ = {
     const t=this.ctx.currentTime, sN=Math.min(1,spd/SPEED.cruise);
     this.transitG.gain.setTargetAtTime(playing? sN*0.9 : 0, t, 0.25);
     this.stationG.gain.setTargetAtTime(playing? (1-sN)*0.45 : 0, t, 0.35);
-  },
-
-  _clackScheduler(){
-    if(!this.ctx || this.fileRumble) return;
-    const t=this.ctx.currentTime, sN=Math.min(1,this.lastSpeed/SPEED.cruise);
-    if(sN<0.14){ this.nextClack=t+0.1; return; }
-    const interval=0.6-0.32*sN;
-    while(this.nextClack < t+0.2){
-      this._clack(this.nextClack, 0.22*sN);
-      this._clack(this.nextClack+0.16, 0.18*sN);
-      this.nextClack += interval;
-    }
-  },
-  _clack(when, amp){
-    const ctx=this.ctx;
-    const src=ctx.createBufferSource(); src.buffer=this.noiseBuf;
-    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=800+Math.random()*500; bp.Q.value=1.1;
-    const g=ctx.createGain();
-    g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.005); g.gain.exponentialRampToValueAtTime(0.001,when+0.12);
-    src.connect(bp).connect(g).connect(this.master);
-    src.start(when, Math.random()*1.5, 0.13);
-    const o=ctx.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(68,when);
-    const g2=ctx.createGain();
-    g2.gain.setValueAtTime(0,when); g2.gain.linearRampToValueAtTime(amp*0.8,when+0.006); g2.gain.exponentialRampToValueAtTime(0.001,when+0.14);
-    o.connect(g2).connect(this.master); o.start(when); o.stop(when+0.16);
   },
 
   async _loadBuffer(url){
@@ -686,6 +662,9 @@ const Scene = {
     // poles & wires (fast)
     this._wires(sN);
 
+    // trackside fence — closest layer, right at the edge of the glass, sells speed/proximity
+    this._trackside(sN);
+
     // speed streaks
     if(sN>0.25){
       c.strokeStyle='rgba(255,255,255,'+(0.05*sN)+')'; c.lineWidth=1;
@@ -694,6 +673,24 @@ const Scene = {
         c.beginPath(); c.moveTo(x,y); c.lineTo(x+len,y); c.stroke();}
     }
     c.restore();
+  },
+
+  /* close, fast-moving fence posts right beside the track — motion-streaked at speed so the
+     foreground reads as "rushing past inches from the glass" rather than flat scenery */
+  _trackside(sN){
+    const c=this.ctx, W=this.W, hz=this.horizon, sp=64, off=this.worldX*2.6;
+    const start=Math.floor(off/sp)-1, end=start+Math.ceil(W/sp)+2;
+    const topY=hz-30, botY=hz+34, stretch=1+sN*5.5;
+    for(let p=start;p<=end;p++){
+      const x=p*sp-off, w=4+hash(p*9.1)*2;
+      c.fillStyle='rgba(3,4,7,.92)';
+      if(sN>0.08){ c.fillRect(x-w*stretch*0.5,topY,w*stretch,botY-topY); }
+      else c.fillRect(x,topY,w,botY-topY);
+    }
+    // low rail/sleeper band right under the window sill
+    const railG=c.createLinearGradient(0,botY,0,botY+18);
+    railG.addColorStop(0,'rgba(10,11,16,.9)'); railG.addColorStop(1,'rgba(10,11,16,0)');
+    c.fillStyle=railG; c.fillRect(0,botY,W,18);
   },
 
   _buildings(L){
