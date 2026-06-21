@@ -454,7 +454,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
    ========================================================= */
 const Audio_ = {
   ctx:null, master:null, melodyG:null, announceG:null, transitG:null, stationG:null,
-  buffers:{}, noiseBuf:null, brownLoop:null,
+  buffers:{}, durations:{}, noiseBuf:null, brownLoop:null,
   rumbleSrc:null, fileRumble:false, lastSpeed:0, muted:false, started:false,
 
   init(){
@@ -549,12 +549,18 @@ const Audio_ = {
 
   async _loadBuffer(url){
     if(this.buffers[url]!==undefined) return this.buffers[url];
-    try{
-      const r=await fetch(url); const a=await r.arrayBuffer();
-      const b=await this.ctx.decodeAudioData(a);
-      this.buffers[url]=b; return b;
-    }catch(e){ console.warn('audio load failed:',url,e); this.buffers[url]=null; return null; }
+    const p = (async()=>{
+      try{
+        const r=await fetch(url); const a=await r.arrayBuffer();
+        const b=await this.ctx.decodeAudioData(a);
+        this.durations[url]=b.duration; return b;
+      }catch(e){ console.warn('audio load failed:',url,e); this.durations[url]=0; return null; }
+    })();
+    this.buffers[url]=p; return p;
   },
+  preload(url){ if(url) this._loadBuffer(url); },
+  /* synchronous best-effort duration (sec); 0/undefined until loaded */
+  knownDuration(url){ return url ? this.durations[url] : undefined; },
   _playBuffer(url,dest){
     this._loadBuffer(url).then(b=>{ if(!b) return;
       const s=this.ctx.createBufferSource(); s.buffer=b; s.connect(dest); s.start();
@@ -821,7 +827,10 @@ const Ride = {
       this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
       if(step.rpos===0) UI.updateProgress(0);
     }
-    else if(step.type==='transit'){ UI.setPhase('In transit'); UI.applyTheme(line); UI.hideSign(); UI.clearSubtitle(); }
+    else if(step.type==='transit'){
+      UI.setPhase('In transit'); UI.applyTheme(line); UI.hideSign(); UI.clearSubtitle();
+      Audio_.preload(st.sounds.announcement); // give the file time to decode before it has to play
+    }
     else if(step.type==='arrive'){
       UI.setPhase('Arrival announcement');
       UI.showSign(step.rpos);
@@ -829,16 +838,31 @@ const Ride = {
       UI.updateProgress(step.rpos);
       const last = step.rpos===this.route.length-1;
       UI.subtitle(`Arriving soon: ${st.romaji}`, (last?'Final stop · ':'Arriving at ')+st.romaji);
+      this._fitDwellToAnnouncement(step);
     }
     else if(step.type==='dwell'){
       const nextChange = !step.final && this.isLineChange(step.rpos+1);
       UI.setPhase(step.final?'Final stop':(nextChange?'Transfer':'Stopped'));
-      if(step.final){ setTimeout(()=>{ if(this.playing) this.finish(); }, 600); }
-      else UI.subtitle(st.romaji, nextChange?`Transfer to ${LINES[this.route[step.rpos+1].lineId].name}`:'Doors opening');
+      if(!step.final) UI.subtitle(st.romaji, nextChange?`Transfer to ${LINES[this.route[step.rpos+1].lineId].name}`:'Doors opening');
     }
   },
 
-  duration(){ const t=this.steps[this.idx]; return TIMING[t.type]; },
+  duration(){ const t=this.steps[this.idx]; return t.dur ?? TIMING[t.type]; },
+
+  /* stretch the dwell phase so the full station-specific announcement always finishes before departure */
+  _fitDwellToAnnouncement(arriveStep){
+    const dwellStep = this.steps[this.idx+1];
+    const url = this.stationOf(arriveStep).sounds.announcement;
+    if(!dwellStep || !url) return;
+    const apply=()=>{
+      const dur = Audio_.knownDuration(url);
+      if(!dur) return;
+      const needed = dur*1000 + 500 - TIMING.arrive;
+      dwellStep.dur = Math.max(TIMING.dwell, needed);
+    };
+    if(Audio_.knownDuration(url)!==undefined) apply();
+    else Audio_._loadBuffer(url).then(()=>{ if(this.steps[this.idx]===arriveStep) apply(); });
+  },
 
   tick(now){
     let dt=(now-this.lastT)/1000; this.lastT=now;
