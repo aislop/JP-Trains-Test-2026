@@ -89,6 +89,10 @@
   #dirTag,#phaseTag{font-size:13px;font-weight:600;color:#e9efd9;background:rgba(20,26,16,.5);
     border:1px solid rgba(154,205,50,.5);padding:5px 10px;border-radius:6px;backdrop-filter:blur(4px)}
   #phaseTag{color:#dfe7f6;border-color:rgba(255,255,255,.18);background:rgba(10,14,25,.48)}
+  #transferTag{font-size:13px;font-weight:800;color:#fff;background:rgba(10,14,25,.58);
+    border:1px solid rgba(255,255,255,.22);padding:5px 10px;border-radius:6px;backdrop-filter:blur(4px);
+    opacity:0;transform:translateY(-4px);transition:opacity .35s,transform .35s,border-color .35s,background .35s}
+  #transferTag.show{opacity:1;transform:none}
 
   /* ---------- station sign ---------- */
   #signWrap{position:absolute;left:50%;top:14%;transform:translate(-50%,30px);z-index:9;
@@ -102,6 +106,9 @@
   #sign .romaji{font-size:15px;text-align:center;letter-spacing:.34em;text-transform:uppercase;color:#3a4150;margin-top:2px;font-weight:700}
   #sign .lineband{margin-top:12px;height:30px;border-radius:16px;background:linear-gradient(180deg,var(--green),var(--green-deep));
     display:flex;align-items:center;justify-content:space-between;padding:0 14px;position:relative}
+  #sign.transfer-pulse{box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset,0 0 0 6px color-mix(in srgb, var(--green) 65%, transparent);
+    animation:transferPulse 1.1s ease-in-out infinite alternate}
+  @keyframes transferPulse{from{filter:saturate(1)}to{filter:saturate(1.25) brightness(1.06)}}
   #sign .nb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:44px;height:44px;border-radius:50%;background:#fff;border:3px solid var(--green-deep);
     display:flex;flex-direction:column;align-items:center;justify-content:center;color:#2c3a14;box-shadow:0 4px 10px rgba(0,0,0,.3)}
@@ -222,6 +229,7 @@
     <div class="badge" id="lineBadge">JR 山手線</div>
     <div id="dirTag">—</div>
     <div id="phaseTag">待機中</div>
+    <div id="transferTag">乗換</div>
   </div>
 
   <div id="signWrap">
@@ -255,12 +263,7 @@
   <div id="setup">
     <div class="card">
       <h1><span class="jr">JR</span> Tokyo Line Ride</h1>
-      <p class="sub">Pick a JR line, then choose where to depart and arrive. Sit by the window and ride — melodies, announcements and the city rushing past.</p>
-
-      <div class="field">
-        <label>Line / 路線</label>
-        <div class="selrow"><select id="lineSel"></select></div>
-      </div>
+      <p class="sub">The Yamanote Line starts automatically. Choose stations if you want a different Yamanote ride — melodies, announcements and the city rushing past.</p>
 
       <div class="field">
         <label>From / 出発</label>
@@ -371,6 +374,31 @@ const LINES = {
 let currentLineId = 'JY';
 const currentLine = () => LINES[currentLineId];
 const stations = () => currentLine().stations;
+const TRANSFER_LINES = {
+  JC: {name:'Chūō Line', kanji:'中央線', badge:'JR 中央線', color:'#F15A24', deep:'#B84218'},
+  JK: {name:'Keihin-Tōhoku Line', kanji:'京浜東北線', badge:'JR 京浜東北線', color:'#00A7E1', deep:'#007AA5'},
+  JA: {name:'Saikyō Line', kanji:'埼京線', badge:'JR 埼京線', color:'#2E8B57', deep:'#19603B'},
+  JS: {name:'Shōnan-Shinjuku Line', kanji:'湘南新宿ライン', badge:'JR 湘南新宿', color:'#E87722', deep:'#AF5412'},
+};
+const YAMANOTE_TRANSFERS = {
+  Tokyo:['JC','JK'],
+  Kanda:['JC','JK'],
+  Akihabara:['JK'],
+  Ueno:['JK'],
+  Nippori:['JK'],
+  Tabata:['JK'],
+  Ikebukuro:['JA','JS'],
+  Shinjuku:['JC','JA','JS'],
+  Yoyogi:['JC'],
+  Osaki:['JA','JS'],
+  Shinagawa:['JK'],
+  'Takanawa Gateway':['JK'],
+  Tamachi:['JK'],
+  Hamamatsucho:['JK'],
+  Shimbashi:['JK'],
+  Yurakucho:['JK'],
+};
+YAMANOTE_STATIONS.forEach(st=>{ st.transfers = (YAMANOTE_TRANSFERS[st.romaji]||[]).map(id=>TRANSFER_LINES[id]); });
 const SHARED = {
   doorChime: null,        // short chime on departure (synth fallback if null)
   transitAmbience: null,  // looping running-train sound (overrides synth clatter if set)
@@ -776,7 +804,7 @@ const Ride = {
       this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
       if(step.rpos===0) UI.updateProgress(0);
     }
-    else if(step.type==='transit'){ UI.setPhase('走行中'); UI.hideSign(); UI.clearSubtitle(); }
+    else if(step.type==='transit'){ UI.setPhase('走行中'); UI.applyLineTheme(); UI.hideSign(); UI.clearSubtitle(); }
     else if(step.type==='arrive'){
       UI.setPhase('到着放送');
       UI.showSign(step.rpos);
@@ -841,12 +869,15 @@ const Ride = {
 const UI = {
   initSelects(){
     const lineSel=$('#lineSel'), f=$('#fromSel'), t=$('#toSel');
-    Object.values(LINES).forEach(line=>{
-      const o=document.createElement('option');
-      o.value=line.id; o.textContent=`${line.id} ${line.kanji} · ${line.name}`;
-      lineSel.appendChild(o);
-    });
-    lineSel.value=currentLineId;
+    currentLineId = 'JY';
+    if(lineSel){
+      Object.values(LINES).forEach(line=>{
+        const o=document.createElement('option');
+        o.value=line.id; o.textContent=`${line.id} ${line.kanji} · ${line.name}`;
+        lineSel.appendChild(o);
+      });
+      lineSel.value=currentLineId;
+    }
     const populateStations=()=>{
       f.innerHTML=''; t.innerHTML='';
       stations().forEach((s,i)=>{
@@ -857,7 +888,7 @@ const UI = {
       Ride.fromIdx=+f.value; Ride.toIdx=+t.value; Ride.autoDir=undefined;
     };
     populateStations();
-    lineSel.onchange=()=>{ currentLineId=lineSel.value; this.applyLineTheme(); populateStations(); this.refreshDir(); };
+    if(lineSel) lineSel.onchange=()=>{ currentLineId=lineSel.value; this.applyLineTheme(); populateStations(); this.refreshDir(); };
     f.onchange=()=>{Ride.fromIdx=+f.value; Ride.autoDir=undefined; this.refreshDir();};
     t.onchange=()=>{Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
     $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromIdx=+f.value; Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
@@ -871,6 +902,19 @@ const UI = {
     document.documentElement.style.setProperty('--green-deep', line.deep);
     $('#lineBadge').textContent=line.badge;
     $('#sign .nb b').textContent=line.id;
+    $('#transferTag').classList.remove('show');
+    $('#sign').classList.remove('transfer-pulse');
+  },
+  applyStationTheme(st){
+    const transfer = st.transfers?.[0];
+    const line = transfer || currentLine();
+    document.documentElement.style.setProperty('--green', line.color);
+    document.documentElement.style.setProperty('--green-deep', line.deep);
+    $('#lineBadge').textContent=transfer ? `${currentLine().badge} → ${transfer.badge}` : currentLine().badge;
+    $('#transferTag').textContent=transfer ? `乗換 ${transfer.kanji}` : '';
+    $('#transferTag').classList.toggle('show', !!transfer);
+    $('#sign').classList.toggle('transfer-pulse', !!transfer);
+    $('#sign .nb b').textContent=transfer ? (Object.keys(TRANSFER_LINES).find(id=>TRANSFER_LINES[id]===transfer) || currentLine().id) : currentLine().id;
   },
   refreshDir(){
     const f=Ride.fromIdx,t=Ride.toIdx,line=currentLine();
@@ -933,6 +977,7 @@ const UI = {
     const prev = rpos>0? list[R[rpos-1]] : null;
     const next = rpos<R.length-1? list[R[rpos+1]] : null;
     const sign=$('#sign');
+    this.applyStationTheme(st);
     sign.querySelector('.kana').textContent=st.kana;
     sign.querySelector('.kanji').textContent=st.kanji;
     sign.querySelector('.romaji').textContent=st.romaji;
@@ -987,6 +1032,7 @@ UI.initSelects();
 UI.bindControls();
 Ride.lastT=performance.now();
 requestAnimationFrame(t=>Ride.tick(t));
+requestAnimationFrame(()=>Ride.start());
 </script>
 </body>
 </html>
