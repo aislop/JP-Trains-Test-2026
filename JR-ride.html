@@ -35,7 +35,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --green:#9ACD32;        /* Yamanote uguisu green */
+    --green:#9ACD32;        /* active JR line color */
     --green-deep:#6fa01f;
     --ink:#1c2230;
     --paper:#f6f5ef;
@@ -212,7 +212,7 @@
   </div>
 
   <div id="hud">
-    <div class="badge">JR 山手線</div>
+    <div class="badge" id="lineBadge">JR 山手線</div>
     <div id="dirTag">—</div>
     <div id="phaseTag">待機中</div>
   </div>
@@ -247,8 +247,13 @@
 
   <div id="setup">
     <div class="card">
-      <h1><span class="jr">JR</span> Yamanote Ride</h1>
-      <p class="sub">Pick a station to depart from and one to arrive at. Sit by the window and ride the loop — melodies, announcements and the city rushing past.</p>
+      <h1><span class="jr">JR</span> Tokyo Line Ride</h1>
+      <p class="sub">Pick a JR line, then choose where to depart and arrive. Sit by the window and ride — melodies, announcements and the city rushing past.</p>
+
+      <div class="field">
+        <label>Line / 路線</label>
+        <div class="selrow"><select id="lineSel"></select></div>
+      </div>
 
       <div class="field">
         <label>From / 出発</label>
@@ -291,39 +296,74 @@
 /* ===================================================================
    CONFIG  —  edit station sounds here
    =================================================================== */
-const STATIONS = [
-  {no:1, kanji:'東京',         kana:'とうきょう',     romaji:'Tokyo',          sounds:{melody:null,announcement:null,ambience:null}},
-  {no:2, kanji:'神田',         kana:'かんだ',         romaji:'Kanda',          sounds:{melody:null,announcement:null,ambience:null}},
-  {no:3, kanji:'秋葉原',       kana:'あきはばら',     romaji:'Akihabara',      sounds:{melody:null,announcement:null,ambience:null}},
-  {no:4, kanji:'御徒町',       kana:'おかちまち',     romaji:'Okachimachi',    sounds:{melody:null,announcement:null,ambience:null}},
-  {no:5, kanji:'上野',         kana:'うえの',         romaji:'Ueno',           sounds:{melody:null,announcement:null,ambience:null}},
-  {no:6, kanji:'鶯谷',         kana:'うぐいすだに',   romaji:'Uguisudani',     sounds:{melody:null,announcement:null,ambience:null}},
-  {no:7, kanji:'日暮里',       kana:'にっぽり',       romaji:'Nippori',        sounds:{melody:null,announcement:null,ambience:null}},
-  {no:8, kanji:'西日暮里',     kana:'にしにっぽり',   romaji:'Nishi-Nippori',  sounds:{melody:null,announcement:null,ambience:null}},
-  {no:9, kanji:'田端',         kana:'たばた',         romaji:'Tabata',         sounds:{melody:null,announcement:null,ambience:null}},
-  {no:10,kanji:'駒込',         kana:'こまごめ',       romaji:'Komagome',       sounds:{melody:null,announcement:null,ambience:null}},
-  {no:11,kanji:'巣鴨',         kana:'すがも',         romaji:'Sugamo',         sounds:{melody:null,announcement:null,ambience:null}},
-  {no:12,kanji:'大塚',         kana:'おおつか',       romaji:'Otsuka',         sounds:{melody:null,announcement:null,ambience:null}},
-  {no:13,kanji:'池袋',         kana:'いけぶくろ',     romaji:'Ikebukuro',      sounds:{melody:null,announcement:null,ambience:null}},
-  {no:14,kanji:'目白',         kana:'めじろ',         romaji:'Mejiro',         sounds:{melody:null,announcement:null,ambience:null}},
-  {no:15,kanji:'高田馬場',     kana:'たかだのばば',   romaji:'Takadanobaba',   sounds:{melody:null,announcement:null,ambience:null}},
-  {no:16,kanji:'新大久保',     kana:'しんおおくぼ',   romaji:'Shin-Okubo',     sounds:{melody:null,announcement:null,ambience:null}},
-  {no:17,kanji:'新宿',         kana:'しんじゅく',     romaji:'Shinjuku',       sounds:{melody:null,announcement:null,ambience:null}},
-  {no:18,kanji:'代々木',       kana:'よよぎ',         romaji:'Yoyogi',         sounds:{melody:null,announcement:null,ambience:null}},
-  {no:19,kanji:'原宿',         kana:'はらじゅく',     romaji:'Harajuku',       sounds:{melody:null,announcement:null,ambience:null}},
-  {no:20,kanji:'渋谷',         kana:'しぶや',         romaji:'Shibuya',        sounds:{melody:null,announcement:null,ambience:null}},
-  {no:21,kanji:'恵比寿',       kana:'えびす',         romaji:'Ebisu',          sounds:{melody:null,announcement:null,ambience:null}},
-  {no:22,kanji:'目黒',         kana:'めぐろ',         romaji:'Meguro',         sounds:{melody:null,announcement:null,ambience:null}},
-  {no:23,kanji:'五反田',       kana:'ごたんだ',       romaji:'Gotanda',        sounds:{melody:null,announcement:null,ambience:null}},
-  {no:24,kanji:'大崎',         kana:'おおさき',       romaji:'Osaki',          sounds:{melody:null,announcement:null,ambience:null}},
-  {no:25,kanji:'品川',         kana:'しながわ',       romaji:'Shinagawa',      sounds:{melody:null,announcement:null,ambience:null}},
-  {no:26,kanji:'高輪ゲートウェイ',kana:'たかなわゲートウェイ',romaji:'Takanawa Gateway',sounds:{melody:null,announcement:null,ambience:null}},
-  {no:27,kanji:'田町',         kana:'たまち',         romaji:'Tamachi',        sounds:{melody:null,announcement:null,ambience:null}},
-  {no:28,kanji:'浜松町',       kana:'はままつちょう', romaji:'Hamamatsucho',   sounds:{melody:null,announcement:null,ambience:null}},
-  {no:29,kanji:'新橋',         kana:'しんばし',       romaji:'Shimbashi',      sounds:{melody:null,announcement:null,ambience:null}},
-  {no:30,kanji:'有楽町',       kana:'ゆうらくちょう', romaji:'Yurakucho',      sounds:{melody:null,announcement:null,ambience:null}},
+const YAMANOTE_STATIONS = [
+  {line:'JY', no:1, kanji:'東京',         kana:'とうきょう',     romaji:'Tokyo',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:2, kanji:'神田',         kana:'かんだ',         romaji:'Kanda',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:3, kanji:'秋葉原',       kana:'あきはばら',     romaji:'Akihabara',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:4, kanji:'御徒町',       kana:'おかちまち',     romaji:'Okachimachi',    sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:5, kanji:'上野',         kana:'うえの',         romaji:'Ueno',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:6, kanji:'鶯谷',         kana:'うぐいすだに',   romaji:'Uguisudani',     sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:7, kanji:'日暮里',       kana:'にっぽり',       romaji:'Nippori',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:8, kanji:'西日暮里',     kana:'にしにっぽり',   romaji:'Nishi-Nippori',  sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:9, kanji:'田端',         kana:'たばた',         romaji:'Tabata',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:10,kanji:'駒込',         kana:'こまごめ',       romaji:'Komagome',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:11,kanji:'巣鴨',         kana:'すがも',         romaji:'Sugamo',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:12,kanji:'大塚',         kana:'おおつか',       romaji:'Otsuka',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:13,kanji:'池袋',         kana:'いけぶくろ',     romaji:'Ikebukuro',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:14,kanji:'目白',         kana:'めじろ',         romaji:'Mejiro',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:15,kanji:'高田馬場',     kana:'たかだのばば',   romaji:'Takadanobaba',   sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:16,kanji:'新大久保',     kana:'しんおおくぼ',   romaji:'Shin-Okubo',     sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:17,kanji:'新宿',         kana:'しんじゅく',     romaji:'Shinjuku',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:18,kanji:'代々木',       kana:'よよぎ',         romaji:'Yoyogi',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:19,kanji:'原宿',         kana:'はらじゅく',     romaji:'Harajuku',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:20,kanji:'渋谷',         kana:'しぶや',         romaji:'Shibuya',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:21,kanji:'恵比寿',       kana:'えびす',         romaji:'Ebisu',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:22,kanji:'目黒',         kana:'めぐろ',         romaji:'Meguro',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:23,kanji:'五反田',       kana:'ごたんだ',       romaji:'Gotanda',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:24,kanji:'大崎',         kana:'おおさき',       romaji:'Osaki',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:25,kanji:'品川',         kana:'しながわ',       romaji:'Shinagawa',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:26,kanji:'高輪ゲートウェイ',kana:'たかなわゲートウェイ',romaji:'Takanawa Gateway',sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:27,kanji:'田町',         kana:'たまち',         romaji:'Tamachi',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:28,kanji:'浜松町',       kana:'はままつちょう', romaji:'Hamamatsucho',   sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:29,kanji:'新橋',         kana:'しんばし',       romaji:'Shimbashi',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:30,kanji:'有楽町',       kana:'ゆうらくちょう', romaji:'Yurakucho',      sounds:{melody:null,announcement:null,ambience:null}},
 ];
 
+
+const CHUO_STATIONS = [
+  {line:'JC', no:1, kanji:'東京',       kana:'とうきょう',       romaji:'Tokyo',              sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:2, kanji:'神田',       kana:'かんだ',           romaji:'Kanda',              sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:3, kanji:'御茶ノ水',   kana:'おちゃのみず',     romaji:'Ochanomizu',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:4, kanji:'四ツ谷',     kana:'よつや',           romaji:'Yotsuya',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:5, kanji:'新宿',       kana:'しんじゅく',       romaji:'Shinjuku',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:6, kanji:'中野',       kana:'なかの',           romaji:'Nakano',             sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:7, kanji:'高円寺',     kana:'こうえんじ',       romaji:'Koenji',             sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:8, kanji:'阿佐ケ谷',   kana:'あさがや',         romaji:'Asagaya',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:9, kanji:'荻窪',       kana:'おぎくぼ',         romaji:'Ogikubo',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:10,kanji:'西荻窪',     kana:'にしおぎくぼ',     romaji:'Nishi-Ogikubo',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:11,kanji:'吉祥寺',     kana:'きちじょうじ',     romaji:'Kichijoji',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:12,kanji:'三鷹',       kana:'みたか',           romaji:'Mitaka',             sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:13,kanji:'武蔵境',     kana:'むさしさかい',     romaji:'Musashi-Sakai',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:14,kanji:'東小金井',   kana:'ひがしこがねい',   romaji:'Higashi-Koganei',    sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:15,kanji:'武蔵小金井', kana:'むさしこがねい',   romaji:'Musashi-Koganei',    sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:16,kanji:'国分寺',     kana:'こくぶんじ',       romaji:'Kokubunji',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:17,kanji:'西国分寺',   kana:'にしこくぶんじ',   romaji:'Nishi-Kokubunji',    sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:18,kanji:'国立',       kana:'くにたち',         romaji:'Kunitachi',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:19,kanji:'立川',       kana:'たちかわ',         romaji:'Tachikawa',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:20,kanji:'日野',       kana:'ひの',             romaji:'Hino',               sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:21,kanji:'豊田',       kana:'とよだ',           romaji:'Toyoda',             sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:22,kanji:'八王子',     kana:'はちおうじ',       romaji:'Hachioji',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:23,kanji:'西八王子',   kana:'にしはちおうじ',   romaji:'Nishi-Hachioji',     sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JC', no:24,kanji:'高尾',       kana:'たかお',           romaji:'Takao',              sounds:{melody:null,announcement:null,ambience:null}},
+];
+
+const LINES = {
+  JY: {id:'JY', name:'Yamanote Line', kanji:'山手線', badge:'JR 山手線', color:'#9ACD32', deep:'#6fa01f', circular:true, forward:'内回り (Inner · CCW)', reverse:'外回り (Outer · CW)', forwardShort:'内回り', reverseShort:'外回り', stations:YAMANOTE_STATIONS},
+  JC: {id:'JC', name:'Chūō Line', kanji:'中央線', badge:'JR 中央線', color:'#F15A24', deep:'#B84218', circular:false, forward:'下り (Westbound · Takao)', reverse:'上り (Eastbound · Tokyo)', forwardShort:'下り', reverseShort:'上り', stations:CHUO_STATIONS},
+};
+let currentLineId = 'JY';
+const currentLine = () => LINES[currentLineId];
+const stations = () => currentLine().stations;
 const SHARED = {
   doorChime: null,        // short chime on departure (synth fallback if null)
   transitAmbience: null,  // looping running-train sound (overrides synth clatter if set)
@@ -335,7 +375,7 @@ const SPEED  = { cruise:270, idleDrift:26 };   // px/sec
 /* =================================================================== */
 
 
-const N = STATIONS.length;
+const stationCount = () => stations().length;
 
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
@@ -668,13 +708,20 @@ const Ride = {
   /* route + direction */
   computeDir(){
     const f=this.fromIdx,t=this.toIdx;
-    const fwd=(t-f+N)%N, bwd=(f-t+N)%N;
-    this.dir = (this.autoDir!==undefined)? this.autoDir : (fwd<=bwd?1:-1);
+    if(currentLine().circular){
+      const n=stationCount(), fwd=(t-f+n)%n, bwd=(f-t+n)%n;
+      this.dir = (this.autoDir!==undefined)? this.autoDir : (fwd<=bwd?1:-1);
+    } else {
+      this.dir = (this.autoDir!==undefined)? this.autoDir : (t>=f?1:-1);
+    }
   },
   buildRoute(){
     const r=[]; let i=this.fromIdx; r.push(i);
     if(this.fromIdx===this.toIdx){ this.route=[i]; return; }
-    while(i!==this.toIdx){ i=(i+this.dir+N)%N; r.push(i); }
+    while(i!==this.toIdx){
+      i = currentLine().circular ? (i+this.dir+stationCount())%stationCount() : i+this.dir;
+      r.push(i);
+    }
     this.route=r;
   },
   buildSteps(){
@@ -688,7 +735,7 @@ const Ride = {
     }
     this.steps=s;
   },
-  stationOf(step){ return STATIONS[this.route[step.rpos]]; },
+  stationOf(step){ return stations()[this.route[step.rpos]]; },
 
   start(){
     Audio_.init(); Audio_.resume();
@@ -702,7 +749,7 @@ const Ride = {
   finish(){
     this.playing=false;
     UI.setPhase('到着');
-    UI.showArrived(STATIONS[this.route[this.route.length-1]]);
+    UI.showArrived(stations()[this.route[this.route.length-1]]);
   },
   exit(){
     this.riding=false; this.playing=false;
@@ -786,44 +833,73 @@ const Ride = {
    ========================================================= */
 const UI = {
   initSelects(){
-    const f=$('#fromSel'), t=$('#toSel');
-    STATIONS.forEach((s,i)=>{
-      const o1=document.createElement('option'); o1.value=i; o1.textContent=`JY${pad2(s.no)} ${s.kanji} · ${s.romaji}`;
-      const o2=o1.cloneNode(true); f.appendChild(o1); t.appendChild(o2);
+    const lineSel=$('#lineSel'), f=$('#fromSel'), t=$('#toSel');
+    Object.values(LINES).forEach(line=>{
+      const o=document.createElement('option');
+      o.value=line.id; o.textContent=`${line.id} ${line.kanji} · ${line.name}`;
+      lineSel.appendChild(o);
     });
-    f.value=0; t.value=16;
-    Ride.fromIdx=0; Ride.toIdx=16;
+    lineSel.value=currentLineId;
+    const populateStations=()=>{
+      f.innerHTML=''; t.innerHTML='';
+      stations().forEach((s,i)=>{
+        const o1=document.createElement('option'); o1.value=i; o1.textContent=`${s.line}${pad2(s.no)} ${s.kanji} · ${s.romaji}`;
+        const o2=o1.cloneNode(true); f.appendChild(o1); t.appendChild(o2);
+      });
+      f.value=0; t.value=Math.min(16, stations().length-1);
+      Ride.fromIdx=+f.value; Ride.toIdx=+t.value; Ride.autoDir=undefined;
+    };
+    populateStations();
+    lineSel.onchange=()=>{ currentLineId=lineSel.value; this.applyLineTheme(); populateStations(); this.refreshDir(); };
     f.onchange=()=>{Ride.fromIdx=+f.value; Ride.autoDir=undefined; this.refreshDir();};
     t.onchange=()=>{Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
     $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromIdx=+f.value; Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
     $('#dirBtn').onclick=()=>{ this.flipDir(); };
+    this.applyLineTheme();
     this.refreshDir();
   },
+  applyLineTheme(){
+    const line=currentLine();
+    document.documentElement.style.setProperty('--green', line.color);
+    document.documentElement.style.setProperty('--green-deep', line.deep);
+    $('#lineBadge').textContent=line.badge;
+    $('#sign .nb b').textContent=line.id;
+  },
   refreshDir(){
-    const f=Ride.fromIdx,t=Ride.toIdx;
-    const fwd=(t-f+N)%N, bwd=(f-t+N)%N;
-    if(Ride.autoDir===undefined) Ride.dir=(fwd<=bwd?1:-1);
-    else Ride.dir=Ride.autoDir;
-    const stops = Ride.dir>0?fwd:bwd;
-    const label = Ride.dir>0?'内回り (Inner · CCW)':'外回り (Outer · CW)';
-    $('#dirLabel').textContent=label;
+    const f=Ride.fromIdx,t=Ride.toIdx,line=currentLine();
+    let fwd,bwd;
+    if(line.circular){
+      const n=stationCount(); fwd=(t-f+n)%n; bwd=(f-t+n)%n;
+      Ride.dir = Ride.autoDir===undefined ? (fwd<=bwd?1:-1) : Ride.autoDir;
+    } else {
+      fwd=Math.max(0,t-f); bwd=Math.max(0,f-t);
+      Ride.dir = Ride.autoDir===undefined ? (t>=f?1:-1) : Ride.autoDir;
+    }
+    const stops = this.routeStops(f,t,Ride.dir);
+    $('#dirLabel').textContent=Ride.dir>0?line.forward:line.reverse;
     $('#dirHint').textContent = (f===t)? 'same station' : `${stops} stop${stops!==1?'s':''}`;
-    $('#dirTag').textContent = Ride.dir>0?'内回り':'外回り';
-    $('#departBtn').disabled = (f===t);
+    $('#dirTag').textContent = Ride.dir>0?line.forwardShort:line.reverseShort;
+    $('#departBtn').disabled = (f===t) || (!line.circular && ((Ride.dir>0 && t<f) || (Ride.dir<0 && t>f)));
     this.updateRoutePreview(f,t,stops);
+  },
+  routeStops(f,t,dir){
+    if(f===t) return 0;
+    if(currentLine().circular) return dir>0 ? (t-f+stationCount())%stationCount() : (f-t+stationCount())%stationCount();
+    return Math.abs(t-f);
   },
   updateRoutePreview(f,t,stops){
     const route=[]; let i=f; route.push(i);
-    if(f!==t){ while(i!==t){ i=(i+Ride.dir+N)%N; route.push(i); } }
-    const travelMs = f===t ? 0 : TIMING.depart + (route.length-1)*(TIMING.transit+TIMING.arrive+TIMING.dwell) + Math.max(0,route.length-2)*TIMING.depart;
-    $('#routeMeta').textContent = f===t ? 'Choose a different destination' : `${stops} stop${stops!==1?'s':''} · ${route.length} station signs`;
-    $('#routeTime').textContent = f===t ? '—' : `demo ${formatMs(travelMs)}`;
-    const names = route.map(idx=>STATIONS[idx].kanji);
+    const invalid = !currentLine().circular && f!==t && ((Ride.dir>0 && t<f) || (Ride.dir<0 && t>f));
+    if(!invalid && f!==t){ while(i!==t){ i = currentLine().circular ? (i+Ride.dir+stationCount())%stationCount() : i+Ride.dir; route.push(i); } }
+    const travelMs = (f===t || invalid) ? 0 : TIMING.depart + (route.length-1)*(TIMING.transit+TIMING.arrive+TIMING.dwell) + Math.max(0,route.length-2)*TIMING.depart;
+    $('#routeMeta').textContent = f===t ? 'Choose a different destination' : invalid ? 'Flip direction to reach this destination' : `${stops} stop${stops!==1?'s':''} · ${route.length} station signs`;
+    $('#routeTime').textContent = (f===t || invalid) ? '—' : `demo ${formatMs(travelMs)}`;
+    const names = route.map(idx=>stations()[idx].kanji);
     const compact = names.length>8 ? [...names.slice(0,4),'…',...names.slice(-3)] : names;
     $('#routeStations').innerHTML = compact.map(name=>`<span>${name}</span>`).join('');
-    const stationFiles = STATIONS.reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length,0);
+    const stationFiles = stations().reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length,0);
     const sharedFiles = ['doorChime','transitAmbience'].filter(k=>!!SHARED[k]).length;
-    $('#soundStatus').innerHTML = `<b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · missing audio uses synth placeholders`;
+    $('#soundStatus').innerHTML = `<b>${currentLine().name}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · missing audio uses synth placeholders`;
   },
   setPhase(text){ $('#phaseTag').textContent=text; },
   flipDir(){ Ride.autoDir = (Ride.dir>0?-1:1); this.refreshDir(); },
@@ -846,9 +922,9 @@ const UI = {
   },
 
   showSign(rpos){
-    const R=Ride.route, st=STATIONS[R[rpos]];
-    const prev = rpos>0? STATIONS[R[rpos-1]] : null;
-    const next = rpos<R.length-1? STATIONS[R[rpos+1]] : null;
+    const R=Ride.route, list=stations(), st=list[R[rpos]];
+    const prev = rpos>0? list[R[rpos-1]] : null;
+    const next = rpos<R.length-1? list[R[rpos+1]] : null;
     const sign=$('#sign');
     sign.querySelector('.kana').textContent=st.kana;
     sign.querySelector('.kanji').textContent=st.kanji;
