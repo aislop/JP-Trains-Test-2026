@@ -86,9 +86,8 @@
     text-shadow:0 2px 8px rgba(0,0,0,.6);transition:opacity .5s}
   .badge{background:var(--green);color:#13310a;font-weight:800;border-radius:6px;
     padding:5px 9px;font-size:13px;letter-spacing:.04em;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-  #dirTag,#phaseTag{font-size:13px;font-weight:600;color:#e9efd9;background:rgba(20,26,16,.5);
-    border:1px solid rgba(154,205,50,.5);padding:5px 10px;border-radius:6px;backdrop-filter:blur(4px)}
-  #phaseTag{color:#dfe7f6;border-color:rgba(255,255,255,.18);background:rgba(10,14,25,.48)}
+  #phaseTag{font-size:13px;font-weight:600;color:#dfe7f6;background:rgba(10,14,25,.48);
+    border:1px solid rgba(255,255,255,.18);padding:5px 10px;border-radius:6px;backdrop-filter:blur(4px)}
   #transferTag{font-size:13px;font-weight:800;color:#fff;background:rgba(10,14,25,.58);
     border:1px solid rgba(255,255,255,.22);padding:5px 10px;border-radius:6px;backdrop-filter:blur(4px);
     opacity:0;transform:translateY(-4px);transition:opacity .35s,transform .35s,border-color .35s,background .35s}
@@ -146,11 +145,6 @@
   .swap button{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#cfd6e4;
     width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:15px;transition:.2s}
   .swap button:hover{background:var(--green);color:#13310a;transform:rotate(180deg)}
-  #dirBtn{width:100%;margin-top:16px;background:rgba(154,205,50,.12);border:1px solid rgba(154,205,50,.45);
-    color:#dff0bd;border-radius:12px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;display:flex;
-    justify-content:space-between;align-items:center;font-family:inherit;transition:.2s}
-  #dirBtn:hover{background:rgba(154,205,50,.2)}
-  #dirBtn .hint{font-size:12px;color:#a9b89a}
   #departBtn{width:100%;margin-top:18px;background:linear-gradient(180deg,var(--green),var(--green-deep));
     color:#10300a;border:none;border-radius:13px;padding:16px;font-size:17px;font-weight:800;letter-spacing:.04em;
     cursor:pointer;font-family:inherit;box-shadow:0 12px 30px rgba(154,205,50,.32);transition:.15s}
@@ -227,7 +221,6 @@
 
   <div id="hud">
     <div class="badge" id="lineBadge">JR Yamanote Line</div>
-    <div id="dirTag">—</div>
     <div id="phaseTag">Waiting</div>
     <div id="transferTag">Transfer</div>
   </div>
@@ -263,7 +256,7 @@
   <div id="setup">
     <div class="card">
       <h1><span class="jr">JR</span> Tokyo Line Ride</h1>
-      <p class="sub">The Yamanote Line starts automatically. Choose stations if you want a different Yamanote ride — melodies, announcements and the city rushing past.</p>
+      <p class="sub">Pick a From and To station — the shortest way around the rail network is chosen for you, transferring lines automatically if needed.</p>
 
       <div class="field">
         <label>From</label>
@@ -277,12 +270,7 @@
         <div class="selrow"><select id="toSel"></select></div>
       </div>
 
-      <button id="dirBtn">
-        <span id="dirLabel">Inner loop</span>
-        <span class="hint" id="dirHint">— stops</span>
-      </button>
-
-      <button id="departBtn">Depart</button>
+      <button id="departBtn">Ride</button>
 
       <div id="routePreview" aria-live="polite">
         <div class="meta"><span id="routeMeta">—</span><span id="routeTime">—</span></div>
@@ -307,10 +295,10 @@
    CONFIG  —  edit station sounds here
    =================================================================== */
 const YAMANOTE_STATIONS = [
-  {line:'JY', no:1, kanji:'東京',         kana:'とうきょう',     romaji:'Tokyo',          sounds:{melody:null,announcement:null,ambience:null}},
-  {line:'JY', no:2, kanji:'神田',         kana:'かんだ',         romaji:'Kanda',          sounds:{melody:null,announcement:null,ambience:null}},
-  {line:'JY', no:3, kanji:'秋葉原',       kana:'あきはばら',     romaji:'Akihabara',      sounds:{melody:null,announcement:null,ambience:null}},
-  {line:'JY', no:4, kanji:'御徒町',       kana:'おかちまち',     romaji:'Okachimachi',    sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JY', no:1, kanji:'東京',         kana:'とうきょう',     romaji:'Tokyo',          sounds:{melody:null,announcement:'sounds/announcements/jy-01-tokyo-arrival-announcement.mp3',ambience:null}},
+  {line:'JY', no:2, kanji:'神田',         kana:'かんだ',         romaji:'Kanda',          sounds:{melody:null,announcement:'sounds/announcements/jy-02-kanda-arrival-announcement.mp3',ambience:null}},
+  {line:'JY', no:3, kanji:'秋葉原',       kana:'あきはばら',     romaji:'Akihabara',      sounds:{melody:null,announcement:'sounds/announcements/jy-03-akihabara-arrival-announcement.mp3',ambience:null}},
+  {line:'JY', no:4, kanji:'御徒町',       kana:'おかちまち',     romaji:'Okachimachi',    sounds:{melody:null,announcement:'sounds/announcements/jy-04-okachimachi-arrival-announcement.mp3',ambience:null}},
   {line:'JY', no:5, kanji:'上野',         kana:'うえの',         romaji:'Ueno',           sounds:{melody:null,announcement:null,ambience:null}},
   {line:'JY', no:6, kanji:'鶯谷',         kana:'うぐいすだに',   romaji:'Uguisudani',     sounds:{melody:null,announcement:null,ambience:null}},
   {line:'JY', no:7, kanji:'日暮里',       kana:'にっぽり',       romaji:'Nippori',        sounds:{melody:null,announcement:null,ambience:null}},
@@ -368,12 +356,9 @@ const CHUO_STATIONS = [
 ];
 
 const LINES = {
-  JY: {id:'JY', name:'Yamanote Line', kanji:'山手線', badge:'JR Yamanote Line', color:'#9ACD32', deep:'#6fa01f', circular:true, forward:'Inner loop · counterclockwise', reverse:'Outer loop · clockwise', forwardShort:'Inner loop', reverseShort:'Outer loop', stations:YAMANOTE_STATIONS},
-  JC: {id:'JC', name:'Chūō Line', kanji:'中央線', badge:'JR Chūō Line', color:'#F15A24', deep:'#B84218', circular:false, forward:'Westbound · toward Takao', reverse:'Eastbound · toward Tokyo', forwardShort:'Westbound', reverseShort:'Eastbound', stations:CHUO_STATIONS},
+  JY: {id:'JY', name:'Yamanote Line', kanji:'山手線', badge:'JR Yamanote Line', color:'#9ACD32', deep:'#6fa01f', circular:true, stations:YAMANOTE_STATIONS},
+  JC: {id:'JC', name:'Chūō Line', kanji:'中央線', badge:'JR Chūō Line', color:'#F15A24', deep:'#B84218', circular:false, stations:CHUO_STATIONS},
 };
-let currentLineId = 'JY';
-const currentLine = () => LINES[currentLineId];
-const stations = () => currentLine().stations;
 const TRANSFER_LINES = {
   JC: {name:'Chūō Line', kanji:'中央線', badge:'JR Chūō Line', color:'#F15A24', deep:'#B84218'},
   JK: {name:'Keihin-Tōhoku Line', kanji:'京浜東北線', badge:'JR Keihin-Tōhoku Line', color:'#00A7E1', deep:'#007AA5'},
@@ -399,6 +384,52 @@ const YAMANOTE_TRANSFERS = {
   Yurakucho:['JK'],
 };
 YAMANOTE_STATIONS.forEach(st=>{ st.transfers = (YAMANOTE_TRANSFERS[st.romaji]||[]).map(id=>TRANSFER_LINES[id]); });
+
+/* ---- network graph: every modeled line, joined at same-name stations ---- */
+const nodeKey = (lineId,idx) => `${lineId}:${idx}`;
+function buildNetwork(){
+  const graph = {};
+  const edge=(a,b)=>{ (graph[a]=graph[a]||[]).push(b); };
+  Object.values(LINES).forEach(line=>{
+    const n=line.stations.length;
+    for(let i=0;i<n;i++){
+      const k=nodeKey(line.id,i);
+      graph[k]=graph[k]||[];
+      if(line.circular){ edge(k,nodeKey(line.id,(i+1)%n)); edge(k,nodeKey(line.id,(i-1+n)%n)); }
+      else { if(i+1<n) edge(k,nodeKey(line.id,i+1)); if(i-1>=0) edge(k,nodeKey(line.id,i-1)); }
+    }
+  });
+  const ids=Object.keys(LINES);
+  for(let a=0;a<ids.length;a++) for(let b=a+1;b<ids.length;b++){
+    const L1=LINES[ids[a]], L2=LINES[ids[b]];
+    L1.stations.forEach((s1,i1)=>{
+      const i2=L2.stations.findIndex(s2=>s2.romaji===s1.romaji);
+      if(i2>=0){ edge(nodeKey(L1.id,i1),nodeKey(L2.id,i2)); edge(nodeKey(L2.id,i2),nodeKey(L1.id,i1)); }
+    });
+  }
+  return graph;
+}
+const NETWORK = buildNetwork();
+function shortestPath(fromKey,toKey){
+  if(fromKey===toKey) return [fromKey];
+  const visited=new Set([fromKey]), prev={}, q=[fromKey];
+  while(q.length){
+    const cur=q.shift();
+    if(cur===toKey) break;
+    for(const nb of NETWORK[cur]||[]){
+      if(!visited.has(nb)){ visited.add(nb); prev[nb]=cur; q.push(nb); }
+    }
+  }
+  if(!visited.has(toKey)) return null;
+  const path=[toKey]; let c=toKey;
+  while(c!==fromKey){ c=prev[c]; path.unshift(c); }
+  return path;
+}
+function pathToNodes(path){
+  return path.map(k=>{ const [lineId,idxStr]=k.split(':'); const idx=+idxStr;
+    return {key:k,lineId,idx,st:LINES[lineId].stations[idx]}; });
+}
+
 const SHARED = {
   doorChime: null,        // short chime on departure (synth fallback if null)
   transitAmbience: null,  // looping running-train sound (overrides synth clatter if set)
@@ -409,8 +440,6 @@ const TIMING = { depart:4200, transit:5200, arrive:3600, dwell:2600 };
 const SPEED  = { cruise:270, idleDrift:26 };   // px/sec
 /* =================================================================== */
 
-
-const stationCount = () => stations().length;
 
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
@@ -737,27 +766,12 @@ const Scene = {
    JOURNEY  (state machine)
    ========================================================= */
 const Ride = {
-  route:[], dir:1, steps:[], idx:0, phaseStart:0, playing:false, riding:false,
-  pausedAt:0, fromIdx:0, toIdx:16, lastT:performance.now(),
+  route:[], steps:[], idx:0, phaseStart:0, playing:false, riding:false,
+  pausedAt:0, fromKey:null, toKey:null, lastT:performance.now(),
 
-  /* route + direction */
-  computeDir(){
-    const f=this.fromIdx,t=this.toIdx;
-    if(currentLine().circular){
-      const n=stationCount(), fwd=(t-f+n)%n, bwd=(f-t+n)%n;
-      this.dir = (this.autoDir!==undefined)? this.autoDir : (fwd<=bwd?1:-1);
-    } else {
-      this.dir = (this.autoDir!==undefined)? this.autoDir : (t>=f?1:-1);
-    }
-  },
   buildRoute(){
-    const r=[]; let i=this.fromIdx; r.push(i);
-    if(this.fromIdx===this.toIdx){ this.route=[i]; return; }
-    while(i!==this.toIdx){
-      i = currentLine().circular ? (i+this.dir+stationCount())%stationCount() : i+this.dir;
-      r.push(i);
-    }
-    this.route=r;
+    const path=shortestPath(this.fromKey,this.toKey);
+    this.route = path ? pathToNodes(path) : [];
   },
   buildSteps(){
     const s=[]; const R=this.route;
@@ -770,11 +784,14 @@ const Ride = {
     }
     this.steps=s;
   },
-  stationOf(step){ return stations()[this.route[step.rpos]]; },
+  stationOf(step){ return this.route[step.rpos].st; },
+  lineOf(step){ return LINES[this.route[step.rpos].lineId]; },
+  isLineChange(rpos){ return rpos>0 && this.route[rpos].lineId!==this.route[rpos-1].lineId; },
 
   start(){
     Audio_.init(); Audio_.resume();
-    this.computeDir(); this.buildRoute(); this.buildSteps();
+    this.buildRoute(); if(this.route.length<2 && this.fromKey!==this.toKey) return;
+    this.buildSteps();
     this.idx=0; this.riding=true; this.playing=true;
     UI.enterRide();
     UI.buildProgress(this.route);
@@ -784,7 +801,7 @@ const Ride = {
   finish(){
     this.playing=false;
     UI.setPhase('Arrived');
-    UI.showArrived(stations()[this.route[this.route.length-1]]);
+    UI.showArrived(this.route[this.route.length-1].st);
   },
   exit(){
     this.riding=false; this.playing=false;
@@ -794,7 +811,7 @@ const Ride = {
 
   onStepStart(){
     const step=this.steps[this.idx]; if(!step) return this.finish();
-    const st=this.stationOf(step);
+    const st=this.stationOf(step), line=this.lineOf(step);
     if(step.type==='depart'){
       UI.setPhase('Departure melody');
       UI.showSign(step.rpos);
@@ -804,7 +821,7 @@ const Ride = {
       this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
       if(step.rpos===0) UI.updateProgress(0);
     }
-    else if(step.type==='transit'){ UI.setPhase('In transit'); UI.applyLineTheme(); UI.hideSign(); UI.clearSubtitle(); }
+    else if(step.type==='transit'){ UI.setPhase('In transit'); UI.applyTheme(line); UI.hideSign(); UI.clearSubtitle(); }
     else if(step.type==='arrive'){
       UI.setPhase('Arrival announcement');
       UI.showSign(step.rpos);
@@ -814,9 +831,10 @@ const Ride = {
       UI.subtitle(`Arriving soon: ${st.romaji}`, (last?'Final stop · ':'Arriving at ')+st.romaji);
     }
     else if(step.type==='dwell'){
-      UI.setPhase(step.final?'Final stop':'Stopped');
+      const nextChange = !step.final && this.isLineChange(step.rpos+1);
+      UI.setPhase(step.final?'Final stop':(nextChange?'Transfer':'Stopped'));
       if(step.final){ setTimeout(()=>{ if(this.playing) this.finish(); }, 600); }
-      else UI.subtitle(st.romaji, 'Doors opening');
+      else UI.subtitle(st.romaji, nextChange?`Transfer to ${LINES[this.route[step.rpos+1].lineId].name}`:'Doors opening');
     }
   },
 
@@ -868,92 +886,69 @@ const Ride = {
    ========================================================= */
 const UI = {
   initSelects(){
-    const lineSel=$('#lineSel'), f=$('#fromSel'), t=$('#toSel');
-    currentLineId = 'JY';
-    if(lineSel){
+    const f=$('#fromSel'), t=$('#toSel');
+    const populate=(sel)=>{
+      sel.innerHTML='';
       Object.values(LINES).forEach(line=>{
-        const o=document.createElement('option');
-        o.value=line.id; o.textContent=`${line.id} ${line.kanji} · ${line.name}`;
-        lineSel.appendChild(o);
+        const og=document.createElement('optgroup'); og.label=`${line.id} ${line.kanji} · ${line.name}`;
+        line.stations.forEach((s,i)=>{
+          const o=document.createElement('option'); o.value=nodeKey(line.id,i);
+          o.textContent=`${s.line}${pad2(s.no)} ${s.kanji} · ${s.romaji}`;
+          og.appendChild(o);
+        });
+        sel.appendChild(og);
       });
-      lineSel.value=currentLineId;
-    }
-    const populateStations=()=>{
-      f.innerHTML=''; t.innerHTML='';
-      stations().forEach((s,i)=>{
-        const o1=document.createElement('option'); o1.value=i; o1.textContent=`${s.line}${pad2(s.no)} ${s.kanji} · ${s.romaji}`;
-        const o2=o1.cloneNode(true); f.appendChild(o1); t.appendChild(o2);
-      });
-      f.value=0; t.value=Math.min(16, stations().length-1);
-      Ride.fromIdx=+f.value; Ride.toIdx=+t.value; Ride.autoDir=undefined;
     };
-    populateStations();
-    if(lineSel) lineSel.onchange=()=>{ currentLineId=lineSel.value; this.applyLineTheme(); populateStations(); this.refreshDir(); };
-    f.onchange=()=>{Ride.fromIdx=+f.value; Ride.autoDir=undefined; this.refreshDir();};
-    t.onchange=()=>{Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
-    $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromIdx=+f.value; Ride.toIdx=+t.value; Ride.autoDir=undefined; this.refreshDir();};
-    $('#dirBtn').onclick=()=>{ this.flipDir(); };
-    this.applyLineTheme();
-    this.refreshDir();
+    populate(f); populate(t);
+    f.value=nodeKey('JY',0); t.value=nodeKey('JY',16);
+    Ride.fromKey=f.value; Ride.toKey=t.value;
+    f.onchange=()=>{Ride.fromKey=f.value; this.refreshRoute();};
+    t.onchange=()=>{Ride.toKey=t.value; this.refreshRoute();};
+    $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromKey=f.value; Ride.toKey=t.value; this.refreshRoute();};
+    this.refreshRoute();
   },
-  applyLineTheme(){
-    const line=currentLine();
+  applyTheme(line){
     document.documentElement.style.setProperty('--green', line.color);
     document.documentElement.style.setProperty('--green-deep', line.deep);
     $('#lineBadge').textContent=line.badge;
+  },
+  applyStationTheme(node, prevNode){
+    const line=LINES[node.lineId], st=node.st;
+    this.applyTheme(line);
     $('#sign .nb b').textContent=line.id;
-    $('#transferTag').classList.remove('show');
-    $('#sign').classList.remove('transfer-pulse');
-  },
-  applyStationTheme(st){
-    const transfer = st.transfers?.[0];
-    const line = transfer || currentLine();
-    document.documentElement.style.setProperty('--green', line.color);
-    document.documentElement.style.setProperty('--green-deep', line.deep);
-    $('#lineBadge').textContent=transfer ? `${currentLine().badge} → ${transfer.badge}` : currentLine().badge;
-    $('#transferTag').textContent=transfer ? `Transfer: ${transfer.name}` : '';
-    $('#transferTag').classList.toggle('show', !!transfer);
-    $('#sign').classList.toggle('transfer-pulse', !!transfer);
-    $('#sign .nb b').textContent=transfer ? (Object.keys(TRANSFER_LINES).find(id=>TRANSFER_LINES[id]===transfer) || currentLine().id) : currentLine().id;
-  },
-  refreshDir(){
-    const f=Ride.fromIdx,t=Ride.toIdx,line=currentLine();
-    let fwd,bwd;
-    if(line.circular){
-      const n=stationCount(); fwd=(t-f+n)%n; bwd=(f-t+n)%n;
-      Ride.dir = Ride.autoDir===undefined ? (fwd<=bwd?1:-1) : Ride.autoDir;
-    } else {
-      fwd=Math.max(0,t-f); bwd=Math.max(0,f-t);
-      Ride.dir = Ride.autoDir===undefined ? (t>=f?1:-1) : Ride.autoDir;
+    const realTransfer = prevNode && prevNode.lineId!==node.lineId;
+    const decorative = !realTransfer && st.transfers?.[0];
+    if(realTransfer){
+      $('#transferTag').textContent=`On: ${line.name}`;
+    } else if(decorative){
+      $('#transferTag').textContent=`Transfer: ${decorative.name}`;
     }
-    const stops = this.routeStops(f,t,Ride.dir);
-    $('#dirLabel').textContent=Ride.dir>0?line.forward:line.reverse;
-    $('#dirHint').textContent = (f===t)? 'same station' : `${stops} stop${stops!==1?'s':''}`;
-    $('#dirTag').textContent = Ride.dir>0?line.forwardShort:line.reverseShort;
-    $('#departBtn').disabled = (f===t) || (!line.circular && ((Ride.dir>0 && t<f) || (Ride.dir<0 && t>f)));
-    this.updateRoutePreview(f,t,stops);
+    $('#transferTag').classList.toggle('show', !!(realTransfer||decorative));
+    $('#sign').classList.toggle('transfer-pulse', !!realTransfer);
   },
-  routeStops(f,t,dir){
-    if(f===t) return 0;
-    if(currentLine().circular) return dir>0 ? (t-f+stationCount())%stationCount() : (f-t+stationCount())%stationCount();
-    return Math.abs(t-f);
-  },
-  updateRoutePreview(f,t,stops){
-    const route=[]; let i=f; route.push(i);
-    const invalid = !currentLine().circular && f!==t && ((Ride.dir>0 && t<f) || (Ride.dir<0 && t>f));
-    if(!invalid && f!==t){ while(i!==t){ i = currentLine().circular ? (i+Ride.dir+stationCount())%stationCount() : i+Ride.dir; route.push(i); } }
-    const travelMs = (f===t || invalid) ? 0 : TIMING.depart + (route.length-1)*(TIMING.transit+TIMING.arrive+TIMING.dwell) + Math.max(0,route.length-2)*TIMING.depart;
-    $('#routeMeta').textContent = f===t ? 'Choose a different destination' : invalid ? 'Flip direction to reach this destination' : `${stops} stop${stops!==1?'s':''} · ${route.length} station signs`;
-    $('#routeTime').textContent = (f===t || invalid) ? '—' : `demo ${formatMs(travelMs)}`;
-    const names = route.map(idx=>stations()[idx].romaji);
+  refreshRoute(){
+    const path=shortestPath(Ride.fromKey,Ride.toKey);
+    const same = Ride.fromKey===Ride.toKey;
+    $('#departBtn').disabled = !path || same;
+    if(!path){ $('#routeMeta').textContent='No route found'; $('#routeTime').textContent='—'; $('#routeStations').innerHTML=''; $('#soundStatus').innerHTML=''; return; }
+    const nodes = pathToNodes(path);
+    const transfers = nodes.slice(1).filter((n,i)=>n.lineId!==nodes[i].lineId).length;
+    const stops = nodes.length-1;
+    const travelMs = same ? 0 : TIMING.depart + stops*(TIMING.transit+TIMING.arrive+TIMING.dwell) + Math.max(0,stops-1)*TIMING.depart;
+    $('#routeMeta').textContent = same ? 'Choose a different destination'
+      : `${stops} stop${stops!==1?'s':''}${transfers?` · ${transfers} transfer${transfers!==1?'s':''}`:''} · ${nodes.length} station signs`;
+    $('#routeTime').textContent = same ? '—' : `demo ${formatMs(travelMs)}`;
+    const names = nodes.map(n=>n.st.romaji);
     const compact = names.length>8 ? [...names.slice(0,4),'…',...names.slice(-3)] : names;
     $('#routeStations').innerHTML = compact.map(name=>`<span>${name}</span>`).join('');
-    const stationFiles = stations().reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length,0);
+    const lineNames = [...new Set(nodes.map(n=>LINES[n.lineId].name))].join(' → ');
+    const allStations = Object.values(LINES).flatMap(l=>l.stations);
+    const stationFiles = allStations.reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length,0);
     const sharedFiles = ['doorChime','transitAmbience'].filter(k=>!!SHARED[k]).length;
-    $('#soundStatus').innerHTML = `<b>${currentLine().name}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · missing audio uses synth placeholders`;
+    $('#soundStatus').innerHTML = `<b>${lineNames}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · missing audio uses synth placeholders`;
+    this.applyTheme(LINES[nodes[0].lineId]);
   },
   setPhase(text){ $('#phaseTag').textContent=text; },
-  flipDir(){ Ride.autoDir = (Ride.dir>0?-1:1); this.refreshDir(); },
 
   enterRide(){
     $('#setup').style.opacity='0'; $('#setup').style.pointerEvents='none';
@@ -973,11 +968,11 @@ const UI = {
   },
 
   showSign(rpos){
-    const R=Ride.route, list=stations(), st=list[R[rpos]];
-    const prev = rpos>0? list[R[rpos-1]] : null;
-    const next = rpos<R.length-1? list[R[rpos+1]] : null;
+    const R=Ride.route, node=R[rpos], st=node.st;
+    const prev = rpos>0? R[rpos-1].st : null;
+    const next = rpos<R.length-1? R[rpos+1].st : null;
     const sign=$('#sign');
-    this.applyStationTheme(st);
+    this.applyStationTheme(node, rpos>0?R[rpos-1]:null);
     sign.querySelector('.kana').textContent=st.kana;
     sign.querySelector('.kanji').textContent=st.kanji;
     sign.querySelector('.romaji').textContent=st.romaji;
@@ -1032,7 +1027,6 @@ UI.initSelects();
 UI.bindControls();
 Ride.lastT=performance.now();
 requestAnimationFrame(t=>Ride.tick(t));
-requestAnimationFrame(()=>Ride.start());
 </script>
 </body>
 </html>
