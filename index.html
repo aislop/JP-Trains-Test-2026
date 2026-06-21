@@ -16,10 +16,17 @@
        doorChime        -> short chime when doors close / depart
        transitAmbience  -> looping "train running" sound (overrides synth clatter)
 
+   Upload folders / naming convention:
+       sounds/departure-melodies/{line}-{station-number}-{station-slug}-departure-melody.mp3
+       sounds/announcements/{line}-{station-number}-{station-slug}-arrival-announcement.mp3
+       sounds/ambience/{line}-{station-number}-{station-slug}-platform-ambience.mp3
+
    Example:
-       sounds:{ melody:'sounds/shibuya_melody.mp3',
-                announcement:'sounds/shibuya_arrival.mp3',
-                ambience:null }
+       sounds:{ melody:'sounds/departure-melodies/jy-20-shibuya-departure-melody.mp3',
+                announcement:'sounds/announcements/jy-20-shibuya-arrival-announcement.mp3',
+                ambience:'sounds/ambience/jy-20-shibuya-platform-ambience.mp3' }
+
+   See sounds/README.md for full upload instructions and shared sound names.
 
    You can also tune the pacing in TIMING / SPEED near the bottom
    of the CONFIG block.
