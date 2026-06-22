@@ -1,0 +1,178 @@
+  :root{
+    --green:#9ACD32;        /* active JR line color */
+    --green-deep:#6fa01f;
+    --ink:#1c2230;
+    --paper:#f6f5ef;
+    --frame:#cfd2cf;
+    --frame-dark:#9aa09a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#0a0d18;
+    font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+    color:#fff;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+  #app{position:fixed;inset:0;overflow:hidden}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  /* ---------- cabin — the wall the window sits in ---------- */
+  #cabin{position:fixed;inset:0;z-index:0;
+    background:linear-gradient(180deg,#d2d5d0 0%,#b7bbb5 42%,#999f98 100%)}
+  #cabin::before{content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg, rgba(0,0,0,.045) 0 2px, transparent 2px 150px)}
+  #cabin::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;
+    background:linear-gradient(180deg,#8b918a,#666c65);box-shadow:0 2px 10px rgba(0,0,0,.3) inset}
+
+  /* ---------- window — pane set into the cabin wall ---------- */
+  #windowFrame{position:absolute;top:4vh;left:50%;transform:translateX(-50%);
+    width:min(980px,90vw);height:64vh;border-radius:22px;overflow:hidden;z-index:2;
+    box-shadow:0 0 0 13px #c9ccc6, 0 0 0 16px rgba(0,0,0,.28), 0 0 0 17px #8d938c,
+      0 26px 60px rgba(0,0,0,.55), inset 0 0 50px rgba(0,0,0,.45)}
+  #windowFrame::after{content:"";position:absolute;left:0;right:0;bottom:0;height:7px;z-index:7;
+    background:linear-gradient(180deg,var(--green),var(--green-deep));box-shadow:0 1px 6px rgba(0,0,0,.3)}
+
+  /* ---------- glass / reflection ---------- */
+  #glass{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;
+    box-shadow:inset 0 0 140px rgba(4,6,14,.7);
+    background:
+      linear-gradient(115deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 60%, rgba(255,255,255,.03) 100%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 2px, rgba(0,0,0,0) 2px 4px);}
+  #glass::before{content:"";position:absolute;top:-20%;bottom:-20%;left:-30%;width:22%;
+    background:linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.07) 45%, rgba(255,255,255,0) 100%);
+    transform:skewX(-12deg); animation:glassGlint 13s ease-in-out infinite;}
+  @keyframes glassGlint{0%{left:-30%}45%{left:115%}100%{left:115%}}
+
+  /* ---------- HUD — small indicator strip mounted just inside the window ---------- */
+  #hud{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:8;display:flex;gap:8px;align-items:center;
+    transition:opacity .5s;background:rgba(10,14,18,.5);padding:5px 12px;border-radius:8px;
+    backdrop-filter:blur(2px);box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  .badge{background:var(--green);color:#13310a;font-weight:800;border-radius:5px;
+    padding:4px 9px;font-size:12px;letter-spacing:.04em;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+  #phaseTag{font-size:12px;font-weight:600;color:#eef1f6;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.16);padding:4px 9px;border-radius:5px}
+  #transferTag{font-size:12px;font-weight:800;color:#fff;background:var(--green-deep);
+    border:1px solid rgba(0,0,0,.18);padding:4px 9px;border-radius:5px;
+    opacity:0;transform:translateY(-4px);transition:opacity .35s,transform .35s,border-color .35s,background .35s}
+  #transferTag.show{opacity:1;transform:none}
+
+  /* ---------- station sign ---------- */
+  #signWrap{position:absolute;left:50%;top:16%;transform:translate(-50%,30px);z-index:9;
+    opacity:0;transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .6s;pointer-events:none;width:min(420px,72%)}
+  #signWrap.show{opacity:1;transform:translate(-50%,0)}
+  #sign{background:var(--paper);border-radius:12px;padding:13px 16px 10px;color:var(--ink);
+    box-shadow:0 14px 36px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset;position:relative;
+    font-family:"M PLUS Rounded 1c","Noto Sans JP",sans-serif}
+  #sign .kana{font-size:12px;color:#7a8068;text-align:center;letter-spacing:.16em;font-weight:500}
+  #sign .kanji{font-size:clamp(26px,5.4vw,38px);font-weight:800;text-align:center;line-height:1.05;letter-spacing:.06em}
+  #sign .romaji{font-size:12px;text-align:center;letter-spacing:.3em;text-transform:uppercase;color:#3a4150;margin-top:2px;font-weight:700}
+  #sign .lineband{margin-top:10px;height:26px;border-radius:14px;background:linear-gradient(180deg,var(--green),var(--green-deep));
+    display:flex;align-items:center;justify-content:space-between;padding:0 12px;position:relative}
+  #sign.transfer-pulse{box-shadow:0 14px 36px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset,0 0 0 6px color-mix(in srgb, var(--green) 65%, transparent);
+    animation:transferPulse 1.1s ease-in-out infinite alternate}
+  @keyframes transferPulse{from{filter:saturate(1)}to{filter:saturate(1.25) brightness(1.06)}}
+  #sign .nb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:38px;height:38px;border-radius:50%;background:#fff;border:3px solid var(--green-deep);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;color:#2c3a14;box-shadow:0 4px 10px rgba(0,0,0,.3)}
+  #sign .nb b{font-size:8px;letter-spacing:.06em;line-height:1;margin-top:2px}
+  #sign .nb span{font-size:15px;font-weight:800;line-height:1}
+  #sign .adj{color:#163a06;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;max-width:38%;overflow:hidden;white-space:nowrap}
+  #sign .adj.r{justify-content:flex-end}
+
+  /* ---------- subtitle ---------- */
+  #subtitle{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:8;text-align:center;
+    opacity:0;transition:opacity .5s;pointer-events:none;width:90%}
+  #subtitle.show{opacity:1}
+  #subtitle .jp{font-size:clamp(16px,3vw,22px);font-weight:700;text-shadow:0 3px 14px rgba(0,0,0,.8)}
+  #subtitle .en{font-size:11px;letter-spacing:.14em;color:#dfe4ef;margin-top:2px;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+
+  /* ---------- setup panel — molded into the cabin wall below the window ---------- */
+  #setup{position:absolute;left:50%;top:calc(4vh + 64vh + 16px);bottom:0;transform:translateX(-50%);
+    width:min(460px,88vw);z-index:12;display:flex;align-items:flex-start;justify-content:center;
+    overflow-y:auto;transition:opacity .6s;padding-bottom:18px}
+  .card{position:relative;width:100%;background:linear-gradient(165deg,#fbfbf8,#dde0d8 55%,#c7cac3);color:var(--ink);
+    border:1px solid rgba(0,0,0,.14);border-radius:18px;padding:24px 24px 22px;
+    box-shadow:0 20px 48px rgba(0,0,0,.45),0 2px 0 rgba(255,255,255,.6) inset,inset 0 -3px 6px rgba(0,0,0,.08)}
+  .card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;border-radius:18px 18px 0 0;
+    background:linear-gradient(90deg,var(--green),var(--green-deep))}
+  .card h1{font-size:23px;font-weight:900;letter-spacing:.01em;display:flex;align-items:center;gap:10px}
+  .card h1 .jr{background:var(--green);color:#13310a;font-size:13px;padding:3px 8px;border-radius:6px;
+    box-shadow:0 2px 4px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.4)}
+  .card p.sub{color:#5b6354;font-size:12.5px;margin-top:7px;line-height:1.55}
+  .field{margin-top:16px}
+  .field label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6b7263;margin-bottom:7px;font-weight:700}
+  .selrow{position:relative}
+  select{width:100%;appearance:none;background:#fff;border:1px solid rgba(0,0,0,.14);
+    color:var(--ink);font-size:15px;font-weight:600;padding:12px 38px 12px 14px;border-radius:10px;cursor:pointer;
+    font-family:inherit;box-shadow:0 1px 2px rgba(0,0,0,.06),inset 0 1px 0 #fff;transition:border-color .15s,box-shadow .15s}
+  select:hover{border-color:rgba(0,0,0,.26)}
+  select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px color-mix(in srgb, var(--green) 28%, transparent)}
+  .selrow::after{content:"";position:absolute;right:15px;top:50%;transform:translateY(-65%) rotate(45deg);
+    width:7px;height:7px;border:2px solid #6b7263;border-top:none;border-left:none;pointer-events:none}
+  option{background:#fff;color:#1c2230}
+  .swap{display:flex;justify-content:center;margin:6px 0 0;position:relative;z-index:1}
+  .swap button{background:#fff;border:1px solid rgba(0,0,0,.16);color:#3a4030;
+    width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:14px;transition:.2s;
+    box-shadow:0 2px 6px rgba(0,0,0,.18)}
+  .swap button:hover{background:var(--green);color:#13310a;border-color:var(--green-deep);transform:rotate(180deg)}
+  .endlessRow{display:flex;align-items:center;gap:9px;margin-top:16px;font-size:12.5px;color:#3a4030;cursor:pointer;user-select:none;font-weight:600}
+  .endlessRow input{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
+  #departBtn{width:100%;margin-top:18px;background:linear-gradient(180deg,var(--green),var(--green-deep));
+    color:#10300a;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:800;letter-spacing:.04em;
+    cursor:pointer;font-family:inherit;box-shadow:0 10px 26px rgba(154,205,50,.38),inset 0 1px 0 rgba(255,255,255,.5),inset 0 -2px 4px rgba(0,0,0,.12);transition:.15s}
+  #departBtn:hover{filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 14px 30px rgba(154,205,50,.45),inset 0 1px 0 rgba(255,255,255,.5)}
+  #departBtn:active{transform:translateY(0)}
+  #departBtn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.5);box-shadow:none;transform:none}
+  #routePreview{margin-top:14px;border:1px solid rgba(0,0,0,.3);border-radius:10px;
+    background:linear-gradient(180deg,#1d2419,#161b13);padding:12px 13px 11px;color:#bfe9a0;
+    box-shadow:inset 0 2px 10px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.06)}
+  #routePreview .meta{display:flex;justify-content:space-between;gap:12px;font-size:10.5px;color:#8fae74;
+    letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;font-weight:700}
+  #routePreview .stations{display:flex;gap:6px;overflow:hidden;white-space:nowrap;font-size:12px;line-height:1.5}
+  #routePreview .stations span{display:inline-flex;align-items:center;gap:6px;color:#d9f5c0}
+  #routePreview .stations span:not(:last-child)::after{content:'›';color:#6fa01f;font-weight:800}
+  #soundStatus{margin-top:10px;font-size:10.5px;color:#7e8d72;line-height:1.5}
+  #soundStatus b{color:#4d5447;font-weight:800}
+
+  /* ---------- dash — console strip spanning the window's width, holds progress + controls ---------- */
+  #dash{position:absolute;left:50%;top:calc(4vh + 64vh + 16px);transform:translateX(-50%);
+    width:min(980px,90vw);z-index:10;display:none;align-items:center;gap:14px;
+    background:linear-gradient(180deg,#e3e6e1,#bcc0ba);border:1px solid rgba(0,0,0,.18);border-radius:16px;
+    padding:10px 16px;box-shadow:0 16px 36px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 5px rgba(0,0,0,.1)}
+  #dash.show{display:flex}
+
+  #progress{display:flex;gap:5px;align-items:center;flex:1 1 auto;min-width:0;overflow-x:auto;
+    background:rgba(0,0,0,.12);padding:8px 14px;border-radius:14px}
+  .tick{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);transition:.4s;position:relative}
+  .tick.done{background:rgba(154,205,50,.65)}
+  .tick.cur{background:var(--green);box-shadow:0 0 0 4px rgba(154,205,50,.3);transform:scale(1.35)}
+  .tick.end{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
+
+  /* ---------- ride controls — right-hand cluster of the dash ---------- */
+  #controls{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .ctrl{background:rgba(0,0,0,.07);border:none;color:#262c20;width:40px;height:40px;border-radius:50%;
+    cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.15s}
+  .ctrl:hover{background:var(--green);color:#13310a}
+  .ctrl.big{width:48px;height:48px;font-size:18px}
+  #volRow{display:flex;align-items:center;gap:6px;padding:0 6px}
+  #vol{width:78px;accent-color:var(--green);cursor:pointer}
+  #exitBtn{font-size:13px;font-weight:600;padding:0 14px;width:auto;border-radius:21px}
+
+  /* ---------- arrived ---------- */
+  #arrived{position:absolute;inset:0;z-index:13;display:none;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 40%, rgba(8,11,22,.3), rgba(5,7,14,.85));text-align:center}
+  #arrived.show{display:flex}
+  #arrived .inner{animation:rise .8s cubic-bezier(.2,.8,.2,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+  #arrived .jp{font-size:clamp(40px,9vw,72px);font-weight:900;color:var(--green);text-shadow:0 6px 30px rgba(0,0,0,.6)}
+  #arrived .en{font-size:16px;letter-spacing:.24em;color:#d6dceb;margin-top:8px}
+  #arrived .dest{font-size:clamp(22px,4vw,30px);font-weight:700;margin-top:20px}
+  #arrived button{margin-top:30px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);
+    color:#fff;border-radius:30px;padding:13px 28px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
+  #arrived button:hover{background:var(--green);color:#13310a;border-color:var(--green)}
+
+  .hideUI{opacity:0!important}
+  @media(max-width:600px){
+    #windowFrame{top:3vh;height:46vh;width:94vw}
+    #setup,#dash{top:calc(3vh + 46vh + 14px);width:94vw}
+    #dash{flex-wrap:wrap}
+    #progress{order:2;width:100%}
+    #controls{order:1;width:100%;justify-content:center}
+  }
