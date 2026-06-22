@@ -1,13 +1,21 @@
 # Train sound uploads
 
-Drop real audio files into these folders and point each station's `sounds` entry in `index.html` at the matching file. Missing files can stay `null`; the app will keep using synthesized placeholders until real audio is configured.
+Drop real audio files into these folders and point each station's `sounds` entry in `index.html` at the matching file. **There are no synthesized placeholders** — anything without a real recording is simply silent, so the ride only ever plays audio you supply.
 
 ## Folders
 
-- `departure-melodies/` — short station melodies that play when the train leaves a station.
+- `departure-melodies/` — short station melodies. These play on the platform **before** the train departs: the melody finishes, the doors close (door chime), and only then does the train pull away.
 - `announcements/` — arrival announcements that play while pulling into a station.
-- `ambience/` — optional looped platform ambience for a station.
-- `shared/` — route-wide sounds such as door chimes or train-running ambience.
+- `ambience/` — optional looped platform ambience for a station (played while stopped there).
+- `shared/` — route-wide sounds: the door chime, the in-transit running-train atmosphere, and a default platform atmosphere. The "Ambient sounds" toggle in setup turns the transit + platform atmosphere on and off.
+
+### Shared sound files
+
+| File | Plays |
+| --- | --- |
+| `shared/door-chime.mp3` | once as the doors close, just before departure |
+| `shared/transit-ambience.mp3` | looped between stations (swells with train speed) |
+| `shared/station-ambience.mp3` | looped while stopped at a station that has no `ambience` of its own |
 
 ## Naming convention
 
