@@ -110,11 +110,9 @@
       </div>
 
       <div class="field">
-        <label>Departure melody era</label>
+        <label>Departure melody preference</label>
         <div class="selrow"><select id="eraSel"></select></div>
       </div>
-
-      <label class="endlessRow"><input type="checkbox" id="endlessChk"> Ride endlessly on this line (loops forever)</label>
 
       <button id="departBtn">Ride</button>
 
@@ -230,6 +228,17 @@ const YAMANOTE_TRANSFERS = {
   Yurakucho:['JK'],
 };
 YAMANOTE_STATIONS.forEach(st=>{ st.transfers = (YAMANOTE_TRANSFERS[st.romaji]||[]).map(id=>TRANSFER_LINES[id]); });
+
+/* ---- auto-wire the recorded audio that ships in /sounds ----
+   Files follow {line}-{nn}-{slug}-{kind}.mp3 (see sounds/README.md), so we derive each
+   station's melody/announcement URL from its line+number+romaji instead of hand-listing 30
+   paths. A missing file just 404s and falls back to a synth placeholder (see Audio engine). */
+const slugify = romaji => romaji.toLowerCase().replace(/[^a-z0-9]+/g,'');
+YAMANOTE_STATIONS.forEach(st=>{
+  const base = `${st.line.toLowerCase()}-${String(st.no).padStart(2,'0')}-${slugify(st.romaji)}`;
+  if(!st.sounds.melody)       st.sounds.melody       = `sounds/departure-melodies/${base}-departure-melody.mp3`;
+  if(!st.sounds.announcement) st.sounds.announcement = `sounds/announcements/${base}-arrival-announcement.mp3`;
+});
 
 /* ---- network graph: every modeled line, joined at same-name stations ---- */
 const nodeKey = (lineId,idx) => `${lineId}:${idx}`;
@@ -416,12 +425,20 @@ const Audio_ = {
   },
 
   /* ---- one-shots ---- */
+  /* The era picker is a *preference*: try the requested era, then walk toward the most recent
+     era that has a recording, and finally the station's default (current) melody. Only if a
+     station has no real melody at all do we fall back to a synth placeholder. */
+  _melodyUrl(st, eraId){
+    const m = st.sounds.melodies || {};
+    let i = MELODY_ERAS.findIndex(e=>e.id===eraId); if(i<0) i=0;
+    for(; i>=0; i--){ const id=MELODY_ERAS[i].id; if(m[id]) return m[id]; }
+    return st.sounds.melody || null;   // most recent option
+  },
   melody(st, eraId, delaySec){
     this.resume();
-    const era = MELODY_ERAS.find(e=>e.id===eraId) || MELODY_ERAS[0];
-    const url = (st.sounds.melodies && st.sounds.melodies[era.id]) || (era.id==='current' ? st.sounds.melody : null);
+    const url = this._melodyUrl(st, eraId);
     if(url){ this._playBuffer(url,this.melodyG,delaySec); }
-    else this._synthMelody(st.no + era.synthSeed, delaySec);
+    else this._synthMelody(st.no, delaySec);
   },
   announcement(st){
     this.resume();
@@ -676,36 +693,11 @@ const Scene = {
 const Ride = {
   route:[], steps:[], idx:0, phaseStart:0, playing:false, riding:false,
   pausedAt:0, fromKey:null, toKey:null, lastT:performance.now(),
-  endless:false, dir:1, melodyEra:'current',
+  melodyEra:'current',
 
   buildRoute(){
     const path=shortestPath(this.fromKey,this.toKey);
     this.route = path ? pathToNodes(path) : [];
-  },
-  /* next station along the chosen line in the current direction — wraps forever
-     on circular lines (Yamanote), reverses direction at the terminus on linear ones (Chūō) */
-  nextNodeAfter(node){
-    const line=LINES[node.lineId], n=line.stations.length;
-    let nidx;
-    if(line.circular){ nidx=(node.idx+this.dir+n)%n; }
-    else {
-      nidx=node.idx+this.dir;
-      if(nidx<0){ this.dir=1; nidx=node.idx+1; }
-      else if(nidx>=n){ this.dir=-1; nidx=node.idx-1; }
-    }
-    return {key:nodeKey(node.lineId,nidx),lineId:node.lineId,idx:nidx,st:line.stations[nidx]};
-  },
-  /* keep a lookahead buffer of steps so the endless ride never runs out and never has to "finish" */
-  extendEndless(){
-    while(this.steps.length-this.idx<=6){
-      const last=this.route[this.route.length-1];
-      this.route.push(this.nextNodeAfter(last));
-      const k=this.route.length-1;
-      this.steps.push({type:'transit',rpos:k});
-      this.steps.push({type:'arrive',rpos:k});
-      this.steps.push({type:'dwell',rpos:k,final:false});
-      this.steps.push({type:'depart',rpos:k});
-    }
   },
   buildSteps(){
     const s=[]; const R=this.route;
@@ -724,18 +716,11 @@ const Ride = {
 
   start(){
     Audio_.init(); Audio_.resume();
-    if(this.endless){
-      this.dir=1;
-      this.route=[pathToNodes([this.fromKey])[0]];
-      this.buildSteps();
-      this.extendEndless();
-    } else {
-      this.buildRoute(); if(this.route.length<2 && this.fromKey!==this.toKey) return;
-      this.buildSteps();
-    }
+    this.buildRoute(); if(this.route.length<2 && this.fromKey!==this.toKey) return;
+    this.buildSteps();
     this.idx=0; this.riding=true; this.playing=true;
     UI.enterRide();
-    UI.buildProgress(this.route, this.endless);
+    UI.buildProgress(this.route);
     this.phaseStart=performance.now();
     this.onStepStart();
   },
@@ -816,7 +801,6 @@ const Ride = {
         else spd=0;
       }
       if(p>=1){ this.idx++; this.phaseStart=now;
-        if(this.endless) this.extendEndless();
         if(this.idx>=this.steps.length) this.finish(); else this.onStepStart(); }
     } else { spd=0; } // paused
 
@@ -836,12 +820,25 @@ const Ride = {
   skip(){
     if(!this.riding||!this.playing) return;
     Audio_.stopAll();
-    if(this.endless) this.extendEndless();
     // jump to next 'arrive' step
     for(let j=this.idx+1;j<this.steps.length;j++){
       if(this.steps[j].type==='arrive'){ this.idx=j; this.phaseStart=performance.now(); clearTimeout(this._hideSignTimer); this.onStepStart(); return; }
     }
     this.finish();
+  },
+  /* teleport to any stop via its progress dot, then continue the trip from there.
+     rpos 0 is the origin (its 'depart' step); every later stop has an 'arrive' step. */
+  jumpTo(rpos){
+    if(!this.riding) return;
+    const target = rpos<=0
+      ? this.steps.findIndex(s=>s.type==='depart' && s.rpos===0)
+      : this.steps.findIndex(s=>s.type==='arrive' && s.rpos===rpos);
+    if(target<0) return;
+    Audio_.stopAll();
+    clearTimeout(this._hideSignTimer);
+    this.idx=target; this.phaseStart=performance.now();
+    if(!this.playing){ this.playing=true; UI.setPlayIcon(true); Audio_.resume(); }
+    this.onStepStart();
   }
 };
 
@@ -874,12 +871,6 @@ const UI = {
     f.onchange=()=>{Ride.fromKey=f.value; this.refreshRoute();};
     t.onchange=()=>{Ride.toKey=t.value; this.refreshRoute();};
     $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromKey=f.value; Ride.toKey=t.value; this.refreshRoute();};
-    $('#endlessChk').onchange=()=>{
-      Ride.endless = $('#endlessChk').checked;
-      $('#toField').style.display = Ride.endless ? 'none' : '';
-      $('.swap').style.display = Ride.endless ? 'none' : '';
-      this.refreshRoute();
-    };
     this.refreshRoute();
   },
   applyTheme(line){
@@ -902,16 +893,6 @@ const UI = {
     $('#sign').classList.toggle('transfer-pulse', !!realTransfer);
   },
   refreshRoute(){
-    if(Ride.endless){
-      const node=pathToNodes([Ride.fromKey])[0], line=LINES[node.lineId];
-      $('#departBtn').disabled=false; $('#departBtn').textContent='Ride Endlessly ∞';
-      $('#routeMeta').textContent=`Endless loop on ${line.name}`;
-      $('#routeTime').textContent='∞';
-      $('#routeStations').innerHTML=`<span>${node.st.romaji}</span><span>…</span>`;
-      $('#soundStatus').innerHTML=`Loops forever${line.circular?' around the loop':' — direction reverses at each terminus'}; missing audio uses synth placeholders.`;
-      this.applyTheme(line);
-      return;
-    }
     $('#departBtn').textContent='Ride';
     const path=shortestPath(Ride.fromKey,Ride.toKey);
     const same = Ride.fromKey===Ride.toKey;
@@ -933,7 +914,7 @@ const UI = {
       + Object.values(st.sounds.melodies||{}).filter(Boolean).length, 0);
     const sharedFiles = ['doorChime','transitAmbience'].filter(k=>!!SHARED[k]).length;
     const era = MELODY_ERAS.find(e=>e.id===Ride.melodyEra) || MELODY_ERAS[0];
-    $('#soundStatus').innerHTML = `<b>${lineNames}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · melody era: <b>${era.label}</b> · missing audio uses synth placeholders`;
+    $('#soundStatus').innerHTML = `<b>${lineNames}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · melody preference: <b>${era.label}</b> · falls back to the most recent recording`;
     this.applyTheme(LINES[nodes[0].lineId]);
   },
   setPhase(text){ $('#phaseTag').textContent=text; },
@@ -972,24 +953,38 @@ const UI = {
   subtitle(jp,en){ const s=$('#subtitle'); s.querySelector('.jp').textContent=jp; s.querySelector('.en').textContent=en; s.classList.add('show'); },
   clearSubtitle(){ $('#subtitle').classList.remove('show'); },
 
-  buildProgress(route, endless){
-    this._endlessProgress = !!endless;
+  buildProgress(route){
     const p=$('#progress'); p.innerHTML='';
-    if(endless) return; // rendered as a sliding window by updateProgress instead
-    route.forEach((si,k)=>{ const d=document.createElement('div'); d.className='tick'+(k===route.length-1?' end':''); d.dataset.k=k; p.appendChild(d); });
+    route.forEach((node,k)=>{
+      const d=document.createElement('div');
+      d.className='tick'+(k===route.length-1?' end':'');
+      d.dataset.k=k;
+      const last=k===route.length-1;
+      const label=`${node.st.romaji} · ${node.st.kanji}`+(k===0?' (start)':last?' (final)':'');
+      d.setAttribute('aria-label',label);
+      d.addEventListener('mouseenter',()=>this.showTip(d,label));
+      d.addEventListener('mouseleave',()=>this.hideTip());
+      d.addEventListener('click',()=>{ this.hideTip(); Ride.jumpTo(k); });
+      p.appendChild(d);
+    });
   },
   updateProgress(rpos){
-    if(this._endlessProgress){
-      const p=$('#progress'); p.innerHTML='';
-      const total=Ride.route.length, start=Math.max(0,rpos-2), end=Math.min(total-1,rpos+4);
-      for(let k=start;k<=end;k++){ const d=document.createElement('div'); d.className='tick'+(k===rpos?' cur':k<rpos?' done':''); p.appendChild(d); }
-      return;
-    }
     document.querySelectorAll('#progress .tick').forEach((el,k)=>{
       el.classList.toggle('done', k<rpos);
       el.classList.toggle('cur', k===rpos);
     });
   },
+  /* tooltip for the progress dots — fixed-positioned off the dot so it isn't clipped
+     by the scrollable progress row */
+  showTip(el,text){
+    const t=this._tip||(this._tip=(()=>{const d=document.createElement('div');d.id='progressTip';document.body.appendChild(d);return d;})());
+    t.textContent=text;
+    const r=el.getBoundingClientRect();
+    t.style.left=(r.left+r.width/2)+'px';
+    t.style.top=(r.top-10)+'px';
+    t.classList.add('show');
+  },
+  hideTip(){ if(this._tip) this._tip.classList.remove('show'); },
 
   setPlayIcon(playing){ $('#playBtn').textContent = playing?'⏸':'▶'; },
 
