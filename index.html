@@ -709,6 +709,9 @@ const Scene = {
     // poles & wires (fast)
     this._wires(sN);
 
+    // trackside bushes — low foliage clumps between the wires and the fence
+    this._bushes(sN);
+
     // trackside fence — closest layer, right at the edge of the glass, sells speed/proximity
     this._trackside(sN);
 
@@ -720,6 +723,27 @@ const Scene = {
         c.beginPath(); c.moveTo(x,y); c.lineTo(x+len,y); c.stroke();}
     }
     c.restore();
+  },
+
+  /* low foliage clumps lining the track, just behind the fence — varied widths/heights per cell,
+     slightly slower parallax than the fence so the layering reads as depth, not a flat strip */
+  _bushes(sN){
+    const c=this.ctx, W=this.W, hz=this.horizon, sp=46, off=this.worldX*2.15;
+    const start=Math.floor(off/sp)-1, end=start+Math.ceil(W/sp)+2;
+    const baseY=hz+6;
+    for(let p=start;p<=end;p++){
+      const x=p*sp-off;
+      const r1=hash(p*4.7+300), r2=hash(p*9.3+301);
+      if(r1<0.22) continue; // gaps so it doesn't read as a solid hedge
+      const w=22+r1*20, h=10+r2*16;
+      const stretch=1+sN*0.9;
+      c.fillStyle = r2>0.7 ? 'rgba(18,28,14,.95)' : 'rgba(10,16,9,.95)';
+      c.beginPath();
+      c.moveTo(x-w*0.5*stretch, baseY);
+      c.quadraticCurveTo(x-w*0.4*stretch, baseY-h, x, baseY-h*1.08);
+      c.quadraticCurveTo(x+w*0.4*stretch, baseY-h, x+w*0.5*stretch, baseY);
+      c.closePath(); c.fill();
+    }
   },
 
   /* close, fast-moving fence posts right beside the track — motion-streaked at speed so the
