@@ -43,6 +43,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Yamanote Ride — ride the window, not the map</title>
+<meta name="description" content="An ambient JR Tokyo line ride: pick a From and To station and watch the city roll past the window, with departure melodies and arrival announcements.">
+<meta name="theme-color" content="#070b16">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070b16'/%3E%3Crect x='8' y='6' width='16' height='16' rx='4' fill='%239ACD32'/%3E%3Ccircle cx='12' cy='25' r='2' fill='%239ACD32'/%3E%3Ccircle cx='20' cy='25' r='2' fill='%239ACD32'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
@@ -82,12 +86,12 @@
     <div id="progress"></div>
     <div id="controls">
       <button class="ctrl" id="exitBtn" title="New journey">✕ Exit</button>
-      <button class="ctrl" id="prevInfo" title="Previous station" style="display:none">⏮</button>
-      <button class="ctrl big" id="playBtn" title="Pause / Play">⏸</button>
-      <button class="ctrl" id="skipBtn" title="Skip to next station">⏭</button>
+      <button class="ctrl" id="prevBtn" title="Previous station" aria-label="Previous station">⏮</button>
+      <button class="ctrl big" id="playBtn" title="Pause / Play" aria-label="Pause or play">⏸</button>
+      <button class="ctrl" id="skipBtn" title="Skip to next station" aria-label="Skip to next station">⏭</button>
       <div id="volRow">
-        <button class="ctrl" id="muteBtn" title="Mute">🔊</button>
-        <input id="vol" type="range" min="0" max="100" value="80">
+        <button class="ctrl" id="muteBtn" title="Mute" aria-label="Mute">🔊</button>
+        <input id="vol" type="range" min="0" max="100" value="80" aria-label="Volume">
       </div>
     </div>
   </div>
@@ -410,10 +414,12 @@ const Audio_ = {
     if(this.buffers[url]!==undefined) return this.buffers[url];
     const p = (async()=>{
       try{
-        const r=await fetch(url); const a=await r.arrayBuffer();
+        const r=await fetch(url);
+        if(!r.ok) throw new Error('HTTP '+r.status);   // missing file → fall straight to synth, don't try to decode an error page
+        const a=await r.arrayBuffer();
         const b=await this.ctx.decodeAudioData(a);
         this.durations[url]=b.duration; return b;
-      }catch(e){ console.warn('audio load failed:',url,e); this.durations[url]=0; return null; }
+      }catch(e){ console.info('no recording, using synth:',url); this.durations[url]=0; return null; }
     })();
     this.buffers[url]=p; return p;
   },
@@ -828,13 +834,21 @@ const Ride = {
       Audio_.resume(); }
   },
   skip(){
-    if(!this.riding||!this.playing) return;
+    if(!this.riding) return;
     Audio_.stopAll();
     // jump to next 'arrive' step
     for(let j=this.idx+1;j<this.steps.length;j++){
-      if(this.steps[j].type==='arrive'){ this.idx=j; this.phaseStart=performance.now(); clearTimeout(this._hideSignTimer); this.onStepStart(); return; }
+      if(this.steps[j].type==='arrive'){ this.idx=j; this.phaseStart=performance.now(); clearTimeout(this._hideSignTimer);
+        if(!this.playing){ this.playing=true; UI.setPlayIcon(true); Audio_.resume(); }
+        this.onStepStart(); return; }
     }
     this.finish();
+  },
+  /* step back one stop — symmetric with skip(), reuses the same teleport path */
+  prev(){
+    if(!this.riding) return;
+    const cur=this.steps[this.idx];
+    this.jumpTo(Math.max(0,(cur?cur.rpos:0)-1));
   },
   /* teleport to any stop via its progress dot, then continue the trip from there.
      rpos 0 is the origin (its 'depart' step); every later stop has an 'arrive' step. */
@@ -1011,6 +1025,7 @@ const UI = {
   bindControls(){
     $('#departBtn').onclick=()=>Ride.start();
     $('#playBtn').onclick=()=>Ride.togglePlay();
+    $('#prevBtn').onclick=()=>Ride.prev();
     $('#skipBtn').onclick=()=>Ride.skip();
     $('#exitBtn').onclick=()=>Ride.exit();
     $('#againBtn').onclick=()=>{ $('#arrived').classList.remove('show'); Ride.exit(); };
