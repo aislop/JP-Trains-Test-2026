@@ -487,12 +487,18 @@ const Scene = {
   init(){
     this.cv=$('#scene'); this.ctx=this.cv.getContext('2d');
     this.resize(); window.addEventListener('resize',()=>this.resize());
+    // the window pane now flex-grows with the viewport (and shrinks when the dash
+    // appears) — observe its rendered size so the scene always fills it crisply
+    if(window.ResizeObserver){ new ResizeObserver(()=>this.resize()).observe(this.cv.parentElement); }
     for(let i=0;i<120;i++) this.stars.push({x:Math.random(),y:Math.random()*0.45,r:Math.random()*1.3+0.2,t:Math.random()*6.28});
   },
   resize(){
+    // render to the pane's actual displayed size (not the whole browser window) so the
+    // cityscape keeps its proportions and stays sharp at any resolution / window size
+    const w=this.cv.clientWidth||window.innerWidth, h=this.cv.clientHeight||window.innerHeight;
     this.dpr=Math.min(2,window.devicePixelRatio||1);
-    this.W=window.innerWidth; this.H=window.innerHeight;
-    this.cv.width=this.W*this.dpr; this.cv.height=this.H*this.dpr;
+    this.W=w; this.H=h;
+    this.cv.width=Math.max(1,Math.round(w*this.dpr)); this.cv.height=Math.max(1,Math.round(h*this.dpr));
     this.ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
     this.horizon=this.H*0.60;
   },
