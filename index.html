@@ -62,9 +62,25 @@
   #app{position:fixed;inset:0;overflow:hidden}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 
+  /* ---------- cabin — the wall the window sits in ---------- */
+  #cabin{position:fixed;inset:0;z-index:0;
+    background:linear-gradient(180deg,#d2d5d0 0%,#b7bbb5 42%,#999f98 100%)}
+  #cabin::before{content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg, rgba(0,0,0,.045) 0 2px, transparent 2px 150px)}
+  #cabin::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;
+    background:linear-gradient(180deg,#8b918a,#666c65);box-shadow:0 2px 10px rgba(0,0,0,.3) inset}
+
+  /* ---------- window — pane set into the cabin wall ---------- */
+  #windowFrame{position:absolute;top:4vh;left:50%;transform:translateX(-50%);
+    width:min(980px,90vw);height:64vh;border-radius:22px;overflow:hidden;z-index:2;
+    box-shadow:0 0 0 13px #c9ccc6, 0 0 0 16px rgba(0,0,0,.28), 0 0 0 17px #8d938c,
+      0 26px 60px rgba(0,0,0,.55), inset 0 0 50px rgba(0,0,0,.45)}
+  #windowFrame::after{content:"";position:absolute;left:0;right:0;bottom:0;height:7px;z-index:7;
+    background:linear-gradient(180deg,var(--green),var(--green-deep));box-shadow:0 1px 6px rgba(0,0,0,.3)}
+
   /* ---------- glass / reflection ---------- */
   #glass{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;
-    box-shadow:inset 0 0 220px rgba(4,6,14,.72);
+    box-shadow:inset 0 0 140px rgba(4,6,14,.7);
     background:
       linear-gradient(115deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 60%, rgba(255,255,255,.03) 100%),
       repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 2px, rgba(0,0,0,0) 2px 4px);}
@@ -73,120 +89,106 @@
     transform:skewX(-12deg); animation:glassGlint 13s ease-in-out infinite;}
   @keyframes glassGlint{0%{left:-30%}45%{left:115%}100%{left:115%}}
 
-  /* ---------- train interior window frame ---------- */
-  #frame{position:absolute;inset:0;pointer-events:none;z-index:6}
-  .bar{position:absolute;background:linear-gradient(180deg,#e7e9e4,#c2c6c1)}
-  #f-top{top:0;left:0;right:0;height:22px;background:linear-gradient(180deg,#d7dad5,#a9aea8)}
-  #f-left{top:0;bottom:0;left:0;width:26px;background:linear-gradient(90deg,#e3e6e1,#aeb3ad)}
-  #f-right{top:0;bottom:0;right:0;width:26px;background:linear-gradient(270deg,#e3e6e1,#aeb3ad)}
-  #f-bottom{left:0;right:0;bottom:0;height:84px;background:linear-gradient(180deg,#c8ccc6,#e9ebe6 55%,#d2d6cf)}
-  #f-bottom::before{content:"";position:absolute;top:0;left:0;right:0;height:9px;
-    background:linear-gradient(180deg,var(--green),var(--green-deep));
-    box-shadow:0 1px 4px rgba(0,0,0,.25)}
-  #f-bottom::after{content:"";position:absolute;left:26px;right:26px;bottom:14px;height:40px;border-radius:6px;
-    background:repeating-linear-gradient(90deg,#bfc3bd 0 7px,#cdd1cb 7px 14px);
-    box-shadow:inset 0 1px 3px rgba(0,0,0,.18);opacity:.85}
-  /* rounded inner corners */
-  .corner{position:absolute;width:30px;height:30px;background:radial-gradient(circle at var(--cx) var(--cy), transparent 0 22px, #c2c6c1 22px)}
-  #c-tl{top:22px;left:26px;--cx:100%;--cy:100%}
-  #c-tr{top:22px;right:26px;--cx:0;--cy:100%}
-
-  /* ---------- HUD — riveted placard hanging off the top frame rail ---------- */
-  #hud{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:8;display:flex;gap:8px;align-items:center;
-    transition:opacity .5s;background:linear-gradient(180deg,#e7e9e4,#bfc3bd);padding:5px 14px 6px;
-    border-radius:0 0 12px 12px;box-shadow:0 4px 10px rgba(0,0,0,.35),inset 0 -1px 0 rgba(255,255,255,.5)}
+  /* ---------- HUD — small indicator strip mounted just inside the window ---------- */
+  #hud{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:8;display:flex;gap:8px;align-items:center;
+    transition:opacity .5s;background:rgba(10,14,18,.5);padding:5px 12px;border-radius:8px;
+    backdrop-filter:blur(2px);box-shadow:0 2px 8px rgba(0,0,0,.4)}
   .badge{background:var(--green);color:#13310a;font-weight:800;border-radius:5px;
     padding:4px 9px;font-size:12px;letter-spacing:.04em;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
-  #phaseTag{font-size:12px;font-weight:600;color:#2c3326;background:rgba(0,0,0,.08);
-    border:1px solid rgba(0,0,0,.12);padding:4px 9px;border-radius:5px}
+  #phaseTag{font-size:12px;font-weight:600;color:#eef1f6;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.16);padding:4px 9px;border-radius:5px}
   #transferTag{font-size:12px;font-weight:800;color:#fff;background:var(--green-deep);
     border:1px solid rgba(0,0,0,.18);padding:4px 9px;border-radius:5px;
     opacity:0;transform:translateY(-4px);transition:opacity .35s,transform .35s,border-color .35s,background .35s}
   #transferTag.show{opacity:1;transform:none}
 
   /* ---------- station sign ---------- */
-  #signWrap{position:absolute;left:50%;top:14%;transform:translate(-50%,30px);z-index:9;
-    opacity:0;transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .6s;pointer-events:none;width:min(560px,86vw)}
+  #signWrap{position:absolute;left:50%;top:16%;transform:translate(-50%,30px);z-index:9;
+    opacity:0;transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .6s;pointer-events:none;width:min(420px,72%)}
   #signWrap.show{opacity:1;transform:translate(-50%,0)}
-  #signWrap::before{content:"";position:absolute;top:-15px;left:50%;transform:translateX(-50%);
-    width:7px;height:18px;background:linear-gradient(180deg,#aab0aa,#6e736e);border-radius:2px;
-    box-shadow:0 0 0 3px rgba(0,0,0,.12)}
-  #sign{background:var(--paper);border-radius:14px;padding:16px 20px 12px;color:var(--ink);
-    box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset;position:relative;
+  #sign{background:var(--paper);border-radius:12px;padding:13px 16px 10px;color:var(--ink);
+    box-shadow:0 14px 36px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset;position:relative;
     font-family:"M PLUS Rounded 1c","Noto Sans JP",sans-serif}
-  #sign .kana{font-size:14px;color:#7a8068;text-align:center;letter-spacing:.18em;font-weight:500}
-  #sign .kanji{font-size:clamp(34px,7vw,52px);font-weight:800;text-align:center;line-height:1.05;letter-spacing:.06em}
-  #sign .romaji{font-size:15px;text-align:center;letter-spacing:.34em;text-transform:uppercase;color:#3a4150;margin-top:2px;font-weight:700}
-  #sign .lineband{margin-top:12px;height:30px;border-radius:16px;background:linear-gradient(180deg,var(--green),var(--green-deep));
-    display:flex;align-items:center;justify-content:space-between;padding:0 14px;position:relative}
-  #sign.transfer-pulse{box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset,0 0 0 6px color-mix(in srgb, var(--green) 65%, transparent);
+  #sign .kana{font-size:12px;color:#7a8068;text-align:center;letter-spacing:.16em;font-weight:500}
+  #sign .kanji{font-size:clamp(26px,5.4vw,38px);font-weight:800;text-align:center;line-height:1.05;letter-spacing:.06em}
+  #sign .romaji{font-size:12px;text-align:center;letter-spacing:.3em;text-transform:uppercase;color:#3a4150;margin-top:2px;font-weight:700}
+  #sign .lineband{margin-top:10px;height:26px;border-radius:14px;background:linear-gradient(180deg,var(--green),var(--green-deep));
+    display:flex;align-items:center;justify-content:space-between;padding:0 12px;position:relative}
+  #sign.transfer-pulse{box-shadow:0 14px 36px rgba(0,0,0,.55),0 0 0 3px rgba(255,255,255,.5) inset,0 0 0 6px color-mix(in srgb, var(--green) 65%, transparent);
     animation:transferPulse 1.1s ease-in-out infinite alternate}
   @keyframes transferPulse{from{filter:saturate(1)}to{filter:saturate(1.25) brightness(1.06)}}
   #sign .nb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    width:44px;height:44px;border-radius:50%;background:#fff;border:3px solid var(--green-deep);
+    width:38px;height:38px;border-radius:50%;background:#fff;border:3px solid var(--green-deep);
     display:flex;flex-direction:column;align-items:center;justify-content:center;color:#2c3a14;box-shadow:0 4px 10px rgba(0,0,0,.3)}
-  #sign .nb b{font-size:9px;letter-spacing:.06em;line-height:1;margin-top:2px}
-  #sign .nb span{font-size:18px;font-weight:800;line-height:1}
-  #sign .adj{color:#163a06;font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px;max-width:38%;overflow:hidden;white-space:nowrap}
+  #sign .nb b{font-size:8px;letter-spacing:.06em;line-height:1;margin-top:2px}
+  #sign .nb span{font-size:15px;font-weight:800;line-height:1}
+  #sign .adj{color:#163a06;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;max-width:38%;overflow:hidden;white-space:nowrap}
   #sign .adj.r{justify-content:flex-end}
 
   /* ---------- subtitle ---------- */
-  #subtitle{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);z-index:8;text-align:center;
+  #subtitle{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:8;text-align:center;
     opacity:0;transition:opacity .5s;pointer-events:none;width:90%}
   #subtitle.show{opacity:1}
-  #subtitle .jp{font-size:clamp(20px,4vw,30px);font-weight:700;text-shadow:0 3px 14px rgba(0,0,0,.8)}
-  #subtitle .en{font-size:14px;letter-spacing:.16em;color:#dfe4ef;margin-top:2px;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+  #subtitle .jp{font-size:clamp(16px,3vw,22px);font-weight:700;text-shadow:0 3px 14px rgba(0,0,0,.8)}
+  #subtitle .en{font-size:11px;letter-spacing:.14em;color:#dfe4ef;margin-top:2px;text-shadow:0 2px 10px rgba(0,0,0,.8)}
 
-  /* ---------- setup card ---------- */
-  #setup{position:absolute;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;
-    background:radial-gradient(120% 90% at 50% 30%, rgba(8,11,22,.25), rgba(6,8,16,.78));transition:opacity .6s}
-  .card{position:relative;width:min(440px,90vw);background:var(--paper);color:var(--ink);
-    border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:30px 28px 26px;
-    box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 0 0 6px rgba(0,0,0,.035)}
-  .card::before,.card::after{content:"";position:absolute;top:-9px;width:38px;height:18px;
-    background:rgba(255,255,255,.5);box-shadow:0 1px 3px rgba(0,0,0,.3)}
-  .card::before{left:26px;transform:rotate(-4deg)}
-  .card::after{right:26px;transform:rotate(4deg)}
-  .card h1{font-size:26px;font-weight:900;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+  /* ---------- setup panel — molded into the cabin wall below the window ---------- */
+  #setup{position:absolute;left:50%;top:calc(4vh + 64vh + 16px);bottom:0;transform:translateX(-50%);
+    width:min(460px,88vw);z-index:12;display:flex;align-items:flex-start;justify-content:center;
+    overflow-y:auto;transition:opacity .6s;padding-bottom:18px}
+  .card{position:relative;width:100%;background:linear-gradient(180deg,#e8eae5,#c9ccc6);color:var(--ink);
+    border:1px solid rgba(0,0,0,.22);border-radius:16px;padding:22px 22px 20px;
+    box-shadow:0 16px 40px rgba(0,0,0,.5),inset 0 2px 0 rgba(255,255,255,.55),inset 0 -2px 5px rgba(0,0,0,.12)}
+  .card h1{font-size:22px;font-weight:900;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
   .card h1 .jr{background:var(--green);color:#13310a;font-size:13px;padding:3px 7px;border-radius:5px}
-  .card p.sub{color:#5b6354;font-size:13px;margin-top:6px;line-height:1.5}
-  .field{margin-top:18px}
-  .field label{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#7c8470;margin-bottom:6px}
+  .card p.sub{color:#4d5447;font-size:12px;margin-top:6px;line-height:1.5}
+  .field{margin-top:14px}
+  .field label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#5c6356;margin-bottom:6px}
   .selrow{position:relative}
-  select{width:100%;appearance:none;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.16);
-    color:var(--ink);font-size:16px;padding:13px 40px 13px 14px;border-radius:8px;cursor:pointer;
+  select{width:100%;appearance:none;background:#fff;border:2px solid rgba(0,0,0,.22);
+    color:var(--ink);font-size:15px;padding:11px 38px 11px 12px;border-radius:8px;cursor:pointer;
     font-family:inherit}
   select:focus{outline:none;border-color:var(--green)}
-  .selrow::after{content:"▾";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#7c8470;pointer-events:none}
+  .selrow::after{content:"▾";position:absolute;right:13px;top:50%;transform:translateY(-50%);color:#5c6356;pointer-events:none}
   option{background:#fff;color:#1c2230}
-  .swap{display:flex;justify-content:center;margin:6px 0 -4px}
-  .swap button{background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.16);color:#3a4030;
-    width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:15px;transition:.2s}
+  .swap{display:flex;justify-content:center;margin:4px 0 -2px}
+  .swap button{background:#fff;border:2px solid rgba(0,0,0,.22);color:#3a4030;
+    width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:14px;transition:.2s}
   .swap button:hover{background:var(--green);color:#13310a;transform:rotate(180deg)}
-  .endlessRow{display:flex;align-items:center;gap:9px;margin-top:16px;font-size:13px;color:#3a4030;cursor:pointer;user-select:none}
-  .endlessRow input{width:17px;height:17px;accent-color:var(--green);cursor:pointer}
-  #departBtn{width:100%;margin-top:18px;background:linear-gradient(180deg,var(--green),var(--green-deep));
-    color:#10300a;border:none;border-radius:10px;padding:16px;font-size:17px;font-weight:800;letter-spacing:.04em;
-    cursor:pointer;font-family:inherit;box-shadow:0 12px 30px rgba(154,205,50,.32);transition:.15s}
+  .endlessRow{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:12px;color:#3a4030;cursor:pointer;user-select:none}
+  .endlessRow input{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
+  #departBtn{width:100%;margin-top:16px;background:linear-gradient(180deg,var(--green),var(--green-deep));
+    color:#10300a;border:2px solid rgba(0,0,0,.18);border-radius:10px;padding:14px;font-size:16px;font-weight:800;letter-spacing:.04em;
+    cursor:pointer;font-family:inherit;box-shadow:0 10px 24px rgba(154,205,50,.32),inset 0 1px 0 rgba(255,255,255,.4);transition:.15s}
   #departBtn:hover{filter:brightness(1.06);transform:translateY(-1px)}
   #departBtn:active{transform:translateY(0)}
   #departBtn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
-  #routePreview{margin-top:14px;border:1px solid rgba(0,0,0,.12);border-radius:10px;
-    background:rgba(0,0,0,.035);padding:12px 12px 10px;color:#2b3024}
-  #routePreview .meta{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#6c7460;
-    letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}
-  #routePreview .stations{display:flex;gap:6px;overflow:hidden;white-space:nowrap;font-size:13px;line-height:1.5}
-  #routePreview .stations span{display:inline-flex;align-items:center;gap:6px;color:#21281a}
-  #routePreview .stations span:not(:last-child)::after{content:'›';color:var(--green-deep);font-weight:800}
-  #soundStatus{margin-top:10px;font-size:12px;color:#6c7460;line-height:1.45}
-  #soundStatus b{color:var(--green-deep);font-weight:800}
+  #routePreview{margin-top:12px;border:2px solid rgba(0,0,0,.35);border-radius:8px;
+    background:#1b2118;padding:10px 11px 9px;color:#bfe9a0;box-shadow:inset 0 2px 8px rgba(0,0,0,.6)}
+  #routePreview .meta{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:#8fae74;
+    letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px}
+  #routePreview .stations{display:flex;gap:6px;overflow:hidden;white-space:nowrap;font-size:12px;line-height:1.5}
+  #routePreview .stations span{display:inline-flex;align-items:center;gap:6px;color:#d9f5c0}
+  #routePreview .stations span:not(:last-child)::after{content:'›';color:#6fa01f;font-weight:800}
+  #soundStatus{margin-top:9px;font-size:11px;color:#8fae74;line-height:1.45}
+  #soundStatus b{color:#d9f5c0;font-weight:800}
 
-  /* ---------- ride controls — built into the window sill, not a floating pill ---------- */
-  #controls{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:10;
-    display:none;align-items:center;gap:8px;background:linear-gradient(180deg,#e3e6e1,#bcc0ba);
-    border:1px solid rgba(0,0,0,.18);border-radius:30px;padding:7px 12px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 3px 10px rgba(0,0,0,.35)}
-  #controls.show{display:flex}
+  /* ---------- dash — console strip spanning the window's width, holds progress + controls ---------- */
+  #dash{position:absolute;left:50%;top:calc(4vh + 64vh + 16px);transform:translateX(-50%);
+    width:min(980px,90vw);z-index:10;display:none;align-items:center;gap:14px;
+    background:linear-gradient(180deg,#e3e6e1,#bcc0ba);border:1px solid rgba(0,0,0,.18);border-radius:16px;
+    padding:10px 16px;box-shadow:0 16px 36px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 5px rgba(0,0,0,.1)}
+  #dash.show{display:flex}
+
+  #progress{display:flex;gap:5px;align-items:center;flex:1 1 auto;min-width:0;overflow-x:auto;
+    background:rgba(0,0,0,.12);padding:8px 14px;border-radius:14px}
+  .tick{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);transition:.4s;position:relative}
+  .tick.done{background:rgba(154,205,50,.65)}
+  .tick.cur{background:var(--green);box-shadow:0 0 0 4px rgba(154,205,50,.3);transform:scale(1.35)}
+  .tick.end{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
+
+  /* ---------- ride controls — right-hand cluster of the dash ---------- */
+  #controls{display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .ctrl{background:rgba(0,0,0,.07);border:none;color:#262c20;width:40px;height:40px;border-radius:50%;
     cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.15s}
   .ctrl:hover{background:var(--green);color:#13310a}
@@ -194,16 +196,6 @@
   #volRow{display:flex;align-items:center;gap:6px;padding:0 6px}
   #vol{width:78px;accent-color:var(--green);cursor:pointer}
   #exitBtn{font-size:13px;font-weight:600;padding:0 14px;width:auto;border-radius:21px}
-
-  /* ---------- progress ticks — etched into the sill above the controls ---------- */
-  #progress{position:absolute;left:50%;bottom:66px;transform:translateX(-50%);z-index:8;
-    display:none;gap:5px;align-items:center;max-width:90vw;flex-wrap:wrap;justify-content:center;
-    background:rgba(0,0,0,.12);padding:6px 14px;border-radius:20px}
-  #progress.show{display:flex}
-  .tick{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);transition:.4s;position:relative}
-  .tick.done{background:rgba(154,205,50,.65)}
-  .tick.cur{background:var(--green);box-shadow:0 0 0 4px rgba(154,205,50,.3);transform:scale(1.35)}
-  .tick.end{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
 
   /* ---------- arrived ---------- */
   #arrived{position:absolute;inset:0;z-index:13;display:none;align-items:center;justify-content:center;
@@ -220,57 +212,55 @@
 
   .hideUI{opacity:0!important}
   @media(max-width:600px){
-    #hud{top:30px;left:30px}
-    #f-bottom{height:72px}
-    #signWrap{top:11%}
+    #windowFrame{top:3vh;height:46vh;width:94vw}
+    #setup,#dash{top:calc(3vh + 46vh + 14px);width:94vw}
+    #dash{flex-wrap:wrap}
+    #progress{order:2;width:100%}
+    #controls{order:1;width:100%;justify-content:center}
   }
 </style>
 </head>
 <body>
 <div id="app">
-  <canvas id="scene"></canvas>
+  <div id="cabin"></div>
 
-  <div id="glass"></div>
-  <div id="frame">
-    <div class="bar" id="f-top"></div>
-    <div class="bar" id="f-left"></div>
-    <div class="bar" id="f-right"></div>
-    <div class="bar" id="f-bottom"></div>
-    <div class="corner" id="c-tl"></div>
-    <div class="corner" id="c-tr"></div>
-  </div>
+  <div id="windowFrame">
+    <canvas id="scene"></canvas>
+    <div id="glass"></div>
 
-  <div id="hud">
-    <div class="badge" id="lineBadge">JR Yamanote Line</div>
-    <div id="phaseTag">Waiting</div>
-    <div id="transferTag">Transfer</div>
-  </div>
+    <div id="hud">
+      <div class="badge" id="lineBadge">JR Yamanote Line</div>
+      <div id="phaseTag">Waiting</div>
+      <div id="transferTag">Transfer</div>
+    </div>
 
-  <div id="signWrap">
-    <div id="sign">
-      <div class="kana"></div>
-      <div class="kanji"></div>
-      <div class="romaji"></div>
-      <div class="lineband">
-        <div class="adj l"></div>
-        <div class="nb"><b>JY</b><span>00</span></div>
-        <div class="adj r"></div>
+    <div id="signWrap">
+      <div id="sign">
+        <div class="kana"></div>
+        <div class="kanji"></div>
+        <div class="romaji"></div>
+        <div class="lineband">
+          <div class="adj l"></div>
+          <div class="nb"><b>JY</b><span>00</span></div>
+          <div class="adj r"></div>
+        </div>
       </div>
     </div>
+
+    <div id="subtitle"><div class="jp"></div><div class="en"></div></div>
   </div>
 
-  <div id="subtitle"><div class="jp"></div><div class="en"></div></div>
-
-  <div id="progress"></div>
-
-  <div id="controls">
-    <button class="ctrl" id="exitBtn" title="New journey">✕ Exit</button>
-    <button class="ctrl" id="prevInfo" title="Previous station" style="display:none">⏮</button>
-    <button class="ctrl big" id="playBtn" title="Pause / Play">⏸</button>
-    <button class="ctrl" id="skipBtn" title="Skip to next station">⏭</button>
-    <div id="volRow">
-      <button class="ctrl" id="muteBtn" title="Mute" style="width:34px;height:34px;font-size:15px;background:transparent">🔊</button>
-      <input id="vol" type="range" min="0" max="100" value="80">
+  <div id="dash">
+    <div id="progress"></div>
+    <div id="controls">
+      <button class="ctrl" id="exitBtn" title="New journey">✕ Exit</button>
+      <button class="ctrl" id="prevInfo" title="Previous station" style="display:none">⏮</button>
+      <button class="ctrl big" id="playBtn" title="Pause / Play">⏸</button>
+      <button class="ctrl" id="skipBtn" title="Skip to next station">⏭</button>
+      <div id="volRow">
+        <button class="ctrl" id="muteBtn" title="Mute" style="width:34px;height:34px;font-size:15px;background:transparent">🔊</button>
+        <input id="vol" type="range" min="0" max="100" value="80">
+      </div>
     </div>
   </div>
 
@@ -500,6 +490,7 @@ const Audio_ = {
   ctx:null, master:null, melodyG:null, announceG:null, transitG:null, stationG:null,
   buffers:{}, durations:{}, brownLoop:null,
   rumbleSrc:null, fileRumble:false, lastSpeed:0, muted:false, started:false,
+  _active:[],
 
   init(){
     if(this.started) return;
@@ -550,6 +541,18 @@ const Audio_ = {
   },
 
   resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
+  suspend(){ if(this.ctx&&this.ctx.state==='running') this.ctx.suspend(); },
+
+  /* track one-shot nodes so they can be force-stopped (exit/skip) */
+  _track(node){
+    this._active.push(node);
+    const drop=()=>{ const i=this._active.indexOf(node); if(i>=0) this._active.splice(i,1); };
+    node.addEventListener ? node.addEventListener('ended',drop,{once:true}) : (node.onended=drop);
+  },
+  stopAll(){
+    this._active.slice().forEach(n=>{ try{ n.stop(); }catch(e){} });
+    this._active.length=0;
+  },
 
   setVolume(v){ if(this.master) this.master.gain.setTargetAtTime(this.muted?0:v, this.ctx.currentTime, .05); this._vol=v; },
   setMuted(m){ this.muted=m; this.setVolume(this._vol??0.8); },
@@ -577,19 +580,20 @@ const Audio_ = {
   preload(url){ if(url) this._loadBuffer(url); },
   /* synchronous best-effort duration (sec); 0/undefined until loaded */
   knownDuration(url){ return url ? this.durations[url] : undefined; },
-  _playBuffer(url,dest){
+  _playBuffer(url,dest,delaySec){
     this._loadBuffer(url).then(b=>{ if(!b) return;
-      const s=this.ctx.createBufferSource(); s.buffer=b; s.connect(dest); s.start();
+      const s=this.ctx.createBufferSource(); s.buffer=b; s.connect(dest);
+      this._track(s); s.start(this.ctx.currentTime+(delaySec||0));
     });
   },
 
   /* ---- one-shots ---- */
-  melody(st, eraId){
+  melody(st, eraId, delaySec){
     this.resume();
     const era = MELODY_ERAS.find(e=>e.id===eraId) || MELODY_ERAS[0];
     const url = (st.sounds.melodies && st.sounds.melodies[era.id]) || (era.id==='current' ? st.sounds.melody : null);
-    if(url){ this._playBuffer(url,this.melodyG); }
-    else this._synthMelody(st.no + era.synthSeed);
+    if(url){ this._playBuffer(url,this.melodyG,delaySec); }
+    else this._synthMelody(st.no + era.synthSeed, delaySec);
   },
   announcement(st){
     this.resume();
@@ -612,10 +616,11 @@ const Audio_ = {
     g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.5,when+0.012);
     g.gain.exponentialRampToValueAtTime(0.0008,when+dur);
     o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(dest);
+    this._track(o); this._track(o2);
     o.start(when); o2.start(when); o.stop(when+dur+0.05); o2.stop(when+dur+0.05);
   },
-  _synthMelody(seed){
-    const ctx=this.ctx, t0=ctx.currentTime+0.03;
+  _synthMelody(seed, delaySec){
+    const ctx=this.ctx, t0=ctx.currentTime+0.03+(delaySec||0);
     const penta=[0,2,4,7,9,12,14,16], base=523.25;
     const r=mulberry(seed*977+13);
     const n=6+Math.floor(r()*4); let time=t0; let prev=-1;
@@ -633,7 +638,7 @@ const Audio_ = {
       const g=ctx.createGain(); const amp=[0.5,0.18,0.08][i];
       g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.01);
       g.gain.exponentialRampToValueAtTime(0.0006,when+1.3);
-      o.connect(g).connect(dest); o.start(when); o.stop(when+1.4);
+      o.connect(g).connect(dest); this._track(o); o.start(when); o.stop(when+1.4);
     });
   },
   _synthChime(){ const t=this.ctx.currentTime+0.02; this._bell(987.77,t,this.announceG); this._bell(739.99,t+0.46,this.announceG); },
@@ -641,7 +646,7 @@ const Audio_ = {
     const ctx=this.ctx, o=ctx.createOscillator(); o.type=type||'sine'; o.frequency.value=freq;
     const g=ctx.createGain(); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.01);
     g.gain.exponentialRampToValueAtTime(0.001,when+dur);
-    o.connect(g).connect(dest); o.start(when); o.stop(when+dur+0.03);
+    o.connect(g).connect(dest); this._track(o); o.start(when); o.stop(when+dur+0.03);
   },
 };
 
@@ -883,6 +888,7 @@ const Ride = {
   },
   exit(){
     this.riding=false; this.playing=false;
+    Audio_.stopAll();
     UI.setPhase('Waiting');
     UI.exitRide();
   },
@@ -894,7 +900,7 @@ const Ride = {
       UI.setPhase('Departure melody');
       UI.showSign(step.rpos);
       Audio_.doorChime();
-      setTimeout(()=>{ if(this.playing) Audio_.melody(st,this.melodyEra); }, SHARED.doorChime?0:520);
+      Audio_.melody(st, this.melodyEra, SHARED.doorChime?0:0.52);
       UI.clearSubtitle();
       this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
       if(step.rpos===0) UI.updateProgress(0);
@@ -910,7 +916,7 @@ const Ride = {
       UI.updateProgress(step.rpos);
       const last = step.rpos===this.route.length-1;
       UI.subtitle(`Arriving soon: ${st.romaji}`, (last?'Final stop · ':'Arriving at ')+st.romaji);
-      this._fitDwellToAnnouncement(step);
+      this._fitArriveToAnnouncement(step);
     }
     else if(step.type==='dwell'){
       const nextChange = !step.final && this.isLineChange(step.rpos+1);
@@ -921,16 +927,16 @@ const Ride = {
 
   duration(){ const t=this.steps[this.idx]; return t.dur ?? TIMING[t.type]; },
 
-  /* stretch the dwell phase so the full station-specific announcement always finishes before departure */
-  _fitDwellToAnnouncement(arriveStep){
-    const dwellStep = this.steps[this.idx+1];
+  /* stretch the arrive phase so the announcement always finishes ~5s before the train actually stops */
+  _fitArriveToAnnouncement(arriveStep){
     const url = this.stationOf(arriveStep).sounds.announcement;
-    if(!dwellStep || !url) return;
+    if(!url) return;
+    const STOP_BUFFER = 5000;
     const apply=()=>{
       const dur = Audio_.knownDuration(url);
       if(!dur) return;
-      const needed = dur*1000 + 500 - TIMING.arrive;
-      dwellStep.dur = Math.max(TIMING.dwell, needed);
+      const needed = dur*1000 + STOP_BUFFER;
+      arriveStep.dur = Math.max(TIMING.arrive, needed);
     };
     if(Audio_.knownDuration(url)!==undefined) apply();
     else Audio_._loadBuffer(url).then(()=>{ if(this.steps[this.idx]===arriveStep) apply(); });
@@ -964,12 +970,14 @@ const Ride = {
 
   togglePlay(){
     if(!this.riding) return;
-    if(this.playing){ this.playing=false; this.pausedAt=performance.now(); UI.setPlayIcon(false); }
+    if(this.playing){ this.playing=false; this.pausedAt=performance.now(); UI.setPlayIcon(false);
+      Audio_.suspend(); }
     else { this.playing=true; this.phaseStart+=performance.now()-this.pausedAt; UI.setPlayIcon(true);
       Audio_.resume(); }
   },
   skip(){
     if(!this.riding||!this.playing) return;
+    Audio_.stopAll();
     if(this.endless) this.extendEndless();
     // jump to next 'arrive' step
     for(let j=this.idx+1;j<this.steps.length;j++){
@@ -1075,14 +1083,12 @@ const UI = {
   enterRide(){
     $('#setup').style.opacity='0'; $('#setup').style.pointerEvents='none';
     setTimeout(()=>$('#setup').style.display='none',600);
-    $('#controls').classList.add('show');
-    $('#progress').classList.add('show');
+    $('#dash').classList.add('show');
     $('#arrived').classList.remove('show');
     this.setPlayIcon(true);
   },
   exitRide(){
-    $('#controls').classList.remove('show');
-    $('#progress').classList.remove('show');
+    $('#dash').classList.remove('show');
     $('#arrived').classList.remove('show');
     this.hideSign(); this.clearSubtitle();
     $('#setup').style.display='flex';
@@ -1133,8 +1139,7 @@ const UI = {
     $('#arrDest').textContent = `${st.kanji} · ${st.romaji}`;
     $('#arrived').classList.add('show');
     this.hideSign(); this.clearSubtitle();
-    $('#controls').classList.remove('show');
-    $('#progress').classList.remove('show');
+    $('#dash').classList.remove('show');
   },
 
   bindControls(){
