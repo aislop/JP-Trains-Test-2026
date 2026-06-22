@@ -8,6 +8,12 @@
        melody       -> departure melody (plays when LEAVING that station)
        announcement -> arrival announcement (plays when PULLING IN)
        ambience     -> optional per-station platform ambience (looped)
+       melodies     -> optional { eraId: url } map for past departure melodies
+                        (see MELODY_ERAS below) — e.g. {current:'...', heisei1:'...'}
+                        lets a rider pick an older melody from the setup card's
+                        "Departure melody era" select. Falls back to `melody`
+                        for the 'current' era, and to a synth placeholder
+                        (varied per era) for any era with no file.
    Put a URL (mp3/ogg/wav) in any of these. Leave it null and a
    synthesized placeholder is generated automatically, so the ride
    is never silent or broken.
@@ -285,6 +291,11 @@
         <div class="selrow"><select id="toSel"></select></div>
       </div>
 
+      <div class="field">
+        <label>Departure melody era</label>
+        <div class="selrow"><select id="eraSel"></select></div>
+      </div>
+
       <label class="endlessRow"><input type="checkbox" id="endlessChk"> Ride endlessly on this line (loops forever)</label>
 
       <button id="departBtn">Ride</button>
@@ -452,6 +463,22 @@ const SHARED = {
   transitAmbience: null,  // looping running-train sound (overrides synth clatter if set)
 };
 
+/* ---- departure melody eras ----
+   Many JR stations have swapped their departure melody over the decades. Each era below has
+   an id (used as the key in a station's optional `sounds.melodies` map), a label with the
+   active year range, and a synthSeed so even stations with no real recording for an era still
+   get an audibly distinct placeholder melody instead of silence/repeats.
+   To add a real recording for a station+era, set:
+       sounds:{ melodies:{ current:'sounds/departure-melodies/jy-20-shibuya-current-departure-melody.mp3',
+                            heisei1:'sounds/departure-melodies/jy-20-shibuya-1990s-departure-melody.mp3' } }
+*/
+const MELODY_ERAS = [
+  {id:'current', label:'Current (2022–present)',  years:[2022,2026], synthSeed:0},
+  {id:'heisei2', label:'Late Heisei (2003–2021)',  years:[2003,2021], synthSeed:401},
+  {id:'heisei1', label:'Early Heisei (1990–2002)', years:[1990,2002], synthSeed:802},
+  {id:'showa',   label:'Shōwa (–1989)',            years:[1970,1989], synthSeed:1203},
+];
+
 // TIMING (ms per phase) and SPEED — tweak the feel of the ride
 const TIMING = { depart:4200, transit:5200, arrive:3600, dwell:2600 };
 const SPEED  = { cruise:270, idleDrift:26 };   // px/sec
@@ -557,10 +584,12 @@ const Audio_ = {
   },
 
   /* ---- one-shots ---- */
-  melody(st){
+  melody(st, eraId){
     this.resume();
-    if(st.sounds.melody){ this._playBuffer(st.sounds.melody,this.melodyG); }
-    else this._synthMelody(st.no);
+    const era = MELODY_ERAS.find(e=>e.id===eraId) || MELODY_ERAS[0];
+    const url = (st.sounds.melodies && st.sounds.melodies[era.id]) || (era.id==='current' ? st.sounds.melody : null);
+    if(url){ this._playBuffer(url,this.melodyG); }
+    else this._synthMelody(st.no + era.synthSeed);
   },
   announcement(st){
     this.resume();
@@ -784,7 +813,7 @@ const Scene = {
 const Ride = {
   route:[], steps:[], idx:0, phaseStart:0, playing:false, riding:false,
   pausedAt:0, fromKey:null, toKey:null, lastT:performance.now(),
-  endless:false, dir:1,
+  endless:false, dir:1, melodyEra:'current',
 
   buildRoute(){
     const path=shortestPath(this.fromKey,this.toKey);
@@ -865,7 +894,7 @@ const Ride = {
       UI.setPhase('Departure melody');
       UI.showSign(step.rpos);
       Audio_.doorChime();
-      setTimeout(()=>{ if(this.playing) Audio_.melody(st); }, SHARED.doorChime?0:520);
+      setTimeout(()=>{ if(this.playing) Audio_.melody(st,this.melodyEra); }, SHARED.doorChime?0:520);
       UI.clearSubtitle();
       this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
       if(step.rpos===0) UI.updateProgress(0);
@@ -971,6 +1000,11 @@ const UI = {
     populate(f); populate(t);
     f.value=nodeKey('JY',0); t.value=nodeKey('JY',16);
     Ride.fromKey=f.value; Ride.toKey=t.value;
+
+    const eraSel=$('#eraSel');
+    eraSel.innerHTML = MELODY_ERAS.map(e=>`<option value="${e.id}">${e.label}</option>`).join('');
+    eraSel.value='current'; Ride.melodyEra='current';
+    eraSel.onchange=()=>{ Ride.melodyEra=eraSel.value; this.refreshRoute(); };
     f.onchange=()=>{Ride.fromKey=f.value; this.refreshRoute();};
     t.onchange=()=>{Ride.toKey=t.value; this.refreshRoute();};
     $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromKey=f.value; Ride.toKey=t.value; this.refreshRoute();};
@@ -1029,9 +1063,11 @@ const UI = {
     $('#routeStations').innerHTML = compact.map(name=>`<span>${name}</span>`).join('');
     const lineNames = [...new Set(nodes.map(n=>LINES[n.lineId].name))].join(' → ');
     const allStations = Object.values(LINES).flatMap(l=>l.stations);
-    const stationFiles = allStations.reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length,0);
+    const stationFiles = allStations.reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length
+      + Object.values(st.sounds.melodies||{}).filter(Boolean).length, 0);
     const sharedFiles = ['doorChime','transitAmbience'].filter(k=>!!SHARED[k]).length;
-    $('#soundStatus').innerHTML = `<b>${lineNames}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · missing audio uses synth placeholders`;
+    const era = MELODY_ERAS.find(e=>e.id===Ride.melodyEra) || MELODY_ERAS[0];
+    $('#soundStatus').innerHTML = `<b>${lineNames}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · melody era: <b>${era.label}</b> · missing audio uses synth placeholders`;
     this.applyTheme(LINES[nodes[0].lineId]);
   },
   setPhase(text){ $('#phaseTag').textContent=text; },
