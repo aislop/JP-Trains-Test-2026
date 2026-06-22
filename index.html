@@ -70,9 +70,9 @@
   #cabin::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;
     background:linear-gradient(180deg,#8b918a,#666c65);box-shadow:0 2px 10px rgba(0,0,0,.3) inset}
 
-  /* ---------- window — smaller pane set into the cabin wall ---------- */
-  #windowFrame{position:absolute;top:5vh;left:50%;transform:translateX(-50%);
-    width:min(820px,80vw);height:56vh;border-radius:22px;overflow:hidden;z-index:2;
+  /* ---------- window — pane set into the cabin wall ---------- */
+  #windowFrame{position:absolute;top:4vh;left:50%;transform:translateX(-50%);
+    width:min(980px,90vw);height:64vh;border-radius:22px;overflow:hidden;z-index:2;
     box-shadow:0 0 0 13px #c9ccc6, 0 0 0 16px rgba(0,0,0,.28), 0 0 0 17px #8d938c,
       0 26px 60px rgba(0,0,0,.55), inset 0 0 50px rgba(0,0,0,.45)}
   #windowFrame::after{content:"";position:absolute;left:0;right:0;bottom:0;height:7px;z-index:7;
@@ -133,7 +133,7 @@
   #subtitle .en{font-size:11px;letter-spacing:.14em;color:#dfe4ef;margin-top:2px;text-shadow:0 2px 10px rgba(0,0,0,.8)}
 
   /* ---------- setup panel — molded into the cabin wall below the window ---------- */
-  #setup{position:absolute;left:50%;top:calc(5vh + 56vh + 18px);bottom:0;transform:translateX(-50%);
+  #setup{position:absolute;left:50%;top:calc(4vh + 64vh + 16px);bottom:0;transform:translateX(-50%);
     width:min(460px,88vw);z-index:12;display:flex;align-items:flex-start;justify-content:center;
     overflow-y:auto;transition:opacity .6s;padding-bottom:18px}
   .card{position:relative;width:100%;background:linear-gradient(180deg,#e8eae5,#c9ccc6);color:var(--ink);
@@ -173,12 +173,22 @@
   #soundStatus{margin-top:9px;font-size:11px;color:#8fae74;line-height:1.45}
   #soundStatus b{color:#d9f5c0;font-weight:800}
 
-  /* ---------- ride controls — molded panel under the window, not a floating pill ---------- */
-  #controls{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:10;
-    display:none;align-items:center;gap:8px;background:linear-gradient(180deg,#e3e6e1,#bcc0ba);
-    border:1px solid rgba(0,0,0,.18);border-radius:30px;padding:7px 12px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 3px 10px rgba(0,0,0,.35)}
-  #controls.show{display:flex}
+  /* ---------- dash — console strip spanning the window's width, holds progress + controls ---------- */
+  #dash{position:absolute;left:50%;top:calc(4vh + 64vh + 16px);transform:translateX(-50%);
+    width:min(980px,90vw);z-index:10;display:none;align-items:center;gap:14px;
+    background:linear-gradient(180deg,#e3e6e1,#bcc0ba);border:1px solid rgba(0,0,0,.18);border-radius:16px;
+    padding:10px 16px;box-shadow:0 16px 36px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 5px rgba(0,0,0,.1)}
+  #dash.show{display:flex}
+
+  #progress{display:flex;gap:5px;align-items:center;flex:1 1 auto;min-width:0;overflow-x:auto;
+    background:rgba(0,0,0,.12);padding:8px 14px;border-radius:14px}
+  .tick{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);transition:.4s;position:relative}
+  .tick.done{background:rgba(154,205,50,.65)}
+  .tick.cur{background:var(--green);box-shadow:0 0 0 4px rgba(154,205,50,.3);transform:scale(1.35)}
+  .tick.end{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
+
+  /* ---------- ride controls — right-hand cluster of the dash ---------- */
+  #controls{display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .ctrl{background:rgba(0,0,0,.07);border:none;color:#262c20;width:40px;height:40px;border-radius:50%;
     cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.15s}
   .ctrl:hover{background:var(--green);color:#13310a}
@@ -186,16 +196,6 @@
   #volRow{display:flex;align-items:center;gap:6px;padding:0 6px}
   #vol{width:78px;accent-color:var(--green);cursor:pointer}
   #exitBtn{font-size:13px;font-weight:600;padding:0 14px;width:auto;border-radius:21px}
-
-  /* ---------- progress ticks — etched into the panel above the controls ---------- */
-  #progress{position:absolute;left:50%;bottom:66px;transform:translateX(-50%);z-index:8;
-    display:none;gap:5px;align-items:center;max-width:90vw;flex-wrap:wrap;justify-content:center;
-    background:rgba(0,0,0,.12);padding:6px 14px;border-radius:20px}
-  #progress.show{display:flex}
-  .tick{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);transition:.4s;position:relative}
-  .tick.done{background:rgba(154,205,50,.65)}
-  .tick.cur{background:var(--green);box-shadow:0 0 0 4px rgba(154,205,50,.3);transform:scale(1.35)}
-  .tick.end{outline:2px solid rgba(255,255,255,.6);outline-offset:2px}
 
   /* ---------- arrived ---------- */
   #arrived{position:absolute;inset:0;z-index:13;display:none;align-items:center;justify-content:center;
@@ -212,8 +212,11 @@
 
   .hideUI{opacity:0!important}
   @media(max-width:600px){
-    #windowFrame{top:3vh;height:46vh;width:90vw}
-    #setup{top:calc(3vh + 46vh + 14px)}
+    #windowFrame{top:3vh;height:46vh;width:94vw}
+    #setup,#dash{top:calc(3vh + 46vh + 14px);width:94vw}
+    #dash{flex-wrap:wrap}
+    #progress{order:2;width:100%}
+    #controls{order:1;width:100%;justify-content:center}
   }
 </style>
 </head>
@@ -247,16 +250,17 @@
     <div id="subtitle"><div class="jp"></div><div class="en"></div></div>
   </div>
 
-  <div id="progress"></div>
-
-  <div id="controls">
-    <button class="ctrl" id="exitBtn" title="New journey">✕ Exit</button>
-    <button class="ctrl" id="prevInfo" title="Previous station" style="display:none">⏮</button>
-    <button class="ctrl big" id="playBtn" title="Pause / Play">⏸</button>
-    <button class="ctrl" id="skipBtn" title="Skip to next station">⏭</button>
-    <div id="volRow">
-      <button class="ctrl" id="muteBtn" title="Mute" style="width:34px;height:34px;font-size:15px;background:transparent">🔊</button>
-      <input id="vol" type="range" min="0" max="100" value="80">
+  <div id="dash">
+    <div id="progress"></div>
+    <div id="controls">
+      <button class="ctrl" id="exitBtn" title="New journey">✕ Exit</button>
+      <button class="ctrl" id="prevInfo" title="Previous station" style="display:none">⏮</button>
+      <button class="ctrl big" id="playBtn" title="Pause / Play">⏸</button>
+      <button class="ctrl" id="skipBtn" title="Skip to next station">⏭</button>
+      <div id="volRow">
+        <button class="ctrl" id="muteBtn" title="Mute" style="width:34px;height:34px;font-size:15px;background:transparent">🔊</button>
+        <input id="vol" type="range" min="0" max="100" value="80">
+      </div>
     </div>
   </div>
 
@@ -1079,14 +1083,12 @@ const UI = {
   enterRide(){
     $('#setup').style.opacity='0'; $('#setup').style.pointerEvents='none';
     setTimeout(()=>$('#setup').style.display='none',600);
-    $('#controls').classList.add('show');
-    $('#progress').classList.add('show');
+    $('#dash').classList.add('show');
     $('#arrived').classList.remove('show');
     this.setPlayIcon(true);
   },
   exitRide(){
-    $('#controls').classList.remove('show');
-    $('#progress').classList.remove('show');
+    $('#dash').classList.remove('show');
     $('#arrived').classList.remove('show');
     this.hideSign(); this.clearSubtitle();
     $('#setup').style.display='flex';
@@ -1137,8 +1139,7 @@ const UI = {
     $('#arrDest').textContent = `${st.kanji} · ${st.romaji}`;
     $('#arrived').classList.add('show');
     this.hideSign(); this.clearSubtitle();
-    $('#controls').classList.remove('show');
-    $('#progress').classList.remove('show');
+    $('#dash').classList.remove('show');
   },
 
   bindControls(){
