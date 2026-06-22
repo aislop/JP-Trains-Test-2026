@@ -2,30 +2,35 @@
   ============================================================
    YAMANOTE RIDE  —  ride the window, not the map
   ============================================================
-   HOW TO ADD YOUR OWN SOUNDS
+   HOW SOUNDS WORK
    --------------------------------------------------------
    Every station below has a `sounds` object:
-       melody       -> departure melody (plays when LEAVING that station)
-       announcement -> arrival announcement (plays when PULLING IN)
-       ambience     -> optional per-station platform ambience (looped)
+       melody       -> departure melody (plays on the platform BEFORE the
+                        train pulls away — doors then close and it departs)
+       announcement -> arrival announcement (plays while pulling in)
+       ambience     -> optional per-station platform ambience (looped while
+                        stopped at that station)
        melodies     -> optional { eraId: url } map for past departure melodies
                         (see MELODY_ERAS below) — e.g. {current:'...', heisei1:'...'}
                         lets a rider pick an older melody from the setup card's
-                        "Departure melody era" select. Falls back to `melody`
-                        for the 'current' era, and to a synth placeholder
-                        (varied per era) for any era with no file.
-   Put a URL (mp3/ogg/wav) in any of these. Leave it null and a
-   synthesized placeholder is generated automatically, so the ride
-   is never silent or broken.
+                        "Departure melody preference" select. Falls back to the
+                        most recent recording the station actually has.
+   Put a URL (mp3/ogg/wav) in any of these. Anything left null is simply
+   SILENT — there are no synthesized placeholder sounds. The ride only ever
+   plays real recordings you supply.
 
-   Shared sounds live in SHARED below:
-       doorChime        -> short chime when doors close / depart
-       transitAmbience  -> looping "train running" sound (overrides synth clatter)
+   Shared, route-wide sounds live in SHARED below:
+       doorChime        -> short chime when the doors close (just before departure)
+       transitAmbience  -> looping "train running" atmosphere (between stations)
+       stationAmbience  -> looping default platform atmosphere (while stopped),
+                           used when a station has no `ambience` of its own
+   The "Ambient sounds" toggle in setup turns transit + station atmosphere on/off.
 
    Upload folders / naming convention:
        sounds/departure-melodies/{line}-{station-number}-{station-slug}-departure-melody.mp3
        sounds/announcements/{line}-{station-number}-{station-slug}-arrival-announcement.mp3
        sounds/ambience/{line}-{station-number}-{station-slug}-platform-ambience.mp3
+       sounds/shared/{door-chime,transit-ambience,station-ambience}.mp3
 
    Example:
        sounds:{ melody:'sounds/departure-melodies/jy-20-shibuya-departure-melody.mp3',
@@ -97,9 +102,15 @@
   </div>
 
   <div id="setup">
+   <div class="setupWrap">
+    <aside id="linePanel">
+      <div class="lpTitle">Lines</div>
+      <div id="lineList"></div>
+      <p class="lpHint">Ride a whole line end to end. Switch on <b>⟳ Loop</b> to keep circling that line only.</p>
+    </aside>
     <div class="card">
       <h1><span class="jr">JR</span> Tokyo Line Ride</h1>
-      <p class="sub">Pick a From and To station — the shortest way around the rail network is chosen for you, transferring lines automatically if needed.</p>
+      <p class="sub">Pick a From and To station — the shortest way around the rail network is chosen for you, transferring lines automatically if needed. Or pick a whole line on the left.</p>
 
       <div class="field">
         <label>From</label>
@@ -118,7 +129,8 @@
         <div class="selrow"><select id="eraSel"></select></div>
       </div>
 
-      <label class="toggle"><input type="checkbox" id="slowRide"> 2× travel time <span class="hint">— more space between stations, fewer overlapping sounds</span></label>
+      <label class="toggle"><input type="checkbox" id="slowRide"> 2× travel time <span class="hint">— even more space between stations</span></label>
+      <label class="toggle"><input type="checkbox" id="ambientToggle" checked> Ambient sounds <span class="hint">— in-transit &amp; platform atmosphere</span></label>
 
       <button id="departBtn">Ride</button>
 
@@ -128,6 +140,7 @@
       </div>
       <div id="soundStatus"></div>
     </div>
+   </div>
   </div>
 
   <div id="arrived">
@@ -238,7 +251,7 @@ YAMANOTE_STATIONS.forEach(st=>{ st.transfers = (YAMANOTE_TRANSFERS[st.romaji]||[
 /* ---- auto-wire the recorded audio that ships in /sounds ----
    Files follow {line}-{nn}-{slug}-{kind}.mp3 (see sounds/README.md), so we derive each
    station's melody/announcement URL from its line+number+romaji instead of hand-listing 30
-   paths. A missing file just 404s and falls back to a synth placeholder (see Audio engine). */
+   paths. A missing file just 404s and stays silent — there are no placeholders (see Audio engine). */
 const slugify = romaji => romaji.toLowerCase().replace(/[^a-z0-9]+/g,'');
 YAMANOTE_STATIONS.forEach(st=>{
   const base = `${st.line.toLowerCase()}-${String(st.no).padStart(2,'0')}-${slugify(st.romaji)}`;
@@ -292,29 +305,36 @@ function pathToNodes(path){
 }
 
 const SHARED = {
-  doorChime: null,        // short chime on departure (synth fallback if null)
-  transitAmbience: null,  // looping running-train sound (overrides synth clatter if set)
+  doorChime:       'sounds/shared/door-chime.mp3',        // short chime as the doors close, just before departure
+  transitAmbience: 'sounds/shared/transit-ambience.mp3',  // looping running-train atmosphere between stations
+  stationAmbience: 'sounds/shared/station-ambience.mp3',  // looping default platform atmosphere while stopped
+  // Missing files just stay silent — there are no synthesized placeholders.
 };
 
 /* ---- departure melody eras ----
    Many JR stations have swapped their departure melody over the decades. Each era below has
-   an id (used as the key in a station's optional `sounds.melodies` map), a label with the
-   active year range, and a synthSeed so even stations with no real recording for an era still
-   get an audibly distinct placeholder melody instead of silence/repeats.
+   an id (used as the key in a station's optional `sounds.melodies` map) and a label with the
+   active year range. The era picker is a *preference*: it plays the requested era's recording
+   if the station has one, otherwise the most recent recording it does have. Eras with no
+   recording are simply skipped — there are no synthesized placeholders.
    To add a real recording for a station+era, set:
        sounds:{ melodies:{ current:'sounds/departure-melodies/jy-20-shibuya-current-departure-melody.mp3',
                             heisei1:'sounds/departure-melodies/jy-20-shibuya-1990s-departure-melody.mp3' } }
 */
 const MELODY_ERAS = [
-  {id:'current', label:'Current (2022–present)',  years:[2022,2026], synthSeed:0},
-  {id:'heisei2', label:'Late Heisei (2003–2021)',  years:[2003,2021], synthSeed:401},
-  {id:'heisei1', label:'Early Heisei (1990–2002)', years:[1990,2002], synthSeed:802},
-  {id:'showa',   label:'Shōwa (–1989)',            years:[1970,1989], synthSeed:1203},
+  {id:'current', label:'Current (2022–present)',  years:[2022,2026]},
+  {id:'heisei2', label:'Late Heisei (2003–2021)',  years:[2003,2021]},
+  {id:'heisei1', label:'Early Heisei (1990–2002)', years:[1990,2002]},
+  {id:'showa',   label:'Shōwa (–1989)',            years:[1970,1989]},
 ];
 
-// TIMING (ms per phase) and SPEED — tweak the feel of the ride
-// (the 2× travel toggle in setup multiplies the transit phase at run time)
-const TIMING = { depart:4800, transit:6800, arrive:3600, dwell:3200 };
+// TIMING (ms per phase) and SPEED — tweak the feel of the ride.
+//   depart = how long the train waits at the platform with the departure melody
+//            playing (departHold) plus the time it takes to accelerate away (departAccel)
+//   transit = time rolling between stations   (the 2× toggle doubles this at run time)
+//   arrive  = time decelerating into a station (stretched to fit the announcement)
+//   dwell   = time stopped at a station with the doors open
+const TIMING = { departHold:6200, departAccel:4200, transit:14000, arrive:5200, dwell:7000 };
 const SPEED  = { cruise:270, idleDrift:26 };   // px/sec
 /* =================================================================== */
 
@@ -325,16 +345,16 @@ const pad2 = n => String(n).padStart(2,'0');
 const formatMs = ms => { const total=Math.max(0,Math.round(ms/1000)); const m=Math.floor(total/60), sec=String(total%60).padStart(2,'0'); return `${m}:${sec}`; };
 function smooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
 function hash(n){let x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);}
-function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 
 /* =========================================================
    AUDIO ENGINE
    ========================================================= */
 const Audio_ = {
   ctx:null, master:null, melodyG:null, announceG:null, transitG:null, stationG:null,
-  buffers:{}, durations:{}, brownLoop:null,
-  rumbleSrc:null, fileRumble:false, lastSpeed:0, muted:false, started:false,
-  _active:[],
+  buffers:{}, durations:{},
+  transitSrc:null, stationSrc:null, stationUrl:null,
+  lastSpeed:0, muted:false, started:false, ambientOn:true, _vol:0.8,
+  _active:[], _melodySrc:null,
 
   init(){
     if(this.started) return;
@@ -345,43 +365,12 @@ const Audio_ = {
     this.melodyG   = ctx.createGain(); this.melodyG.gain.value=0.9;   this.melodyG.connect(this.master);
     this.announceG = ctx.createGain(); this.announceG.gain.value=0.9; this.announceG.connect(this.master);
     this.transitG  = ctx.createGain(); this.transitG.gain.value=0;    this.transitG.connect(this.master);
-    this.stationG  = ctx.createGain(); this.stationG.gain.value=0;     this.stationG.connect(this.master);
+    this.stationG  = ctx.createGain(); this.stationG.gain.value=0;    this.stationG.connect(this.master);
 
-    this.brownLoop = this._noise(3,'brown');
-
-    // continuous rumble (synth) OR file ambience
-    if(SHARED.transitAmbience){
-      this.fileRumble = true;
-      this._loadBuffer(SHARED.transitAmbience).then(buf=>{
-        if(!buf){ this.fileRumble=false; this._startSynthRumble(); return; }
-        const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true;
-        s.connect(this.transitG); s.start(); this.rumbleSrc=s;
-      });
-    } else {
-      this._startSynthRumble();
-    }
-    // station hum (synth, lowpassed brown)
-    const hum=ctx.createBufferSource(); hum.buffer=this.brownLoop; hum.loop=true;
-    const hlp=ctx.createBiquadFilter(); hlp.type='lowpass'; hlp.frequency.value=520;
-    const hg=ctx.createGain(); hg.gain.value=0.5;
-    hum.connect(hlp).connect(hg).connect(this.stationG); hum.start();
+    // continuous in-transit atmosphere (between stations) — silent until a file is supplied
+    if(SHARED.transitAmbience) this._loop(SHARED.transitAmbience, this.transitG, s=>this.transitSrc=s);
 
     this.started = true;
-  },
-
-  _startSynthRumble(){
-    const ctx=this.ctx;
-    const s=ctx.createBufferSource(); s.buffer=this.brownLoop; s.loop=true;
-    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=330;
-    s.connect(lp).connect(this.transitG); s.start(); this.rumbleSrc=s;
-  },
-
-  _noise(sec,type){
-    const ctx=this.ctx, len=ctx.sampleRate*sec, buf=ctx.createBuffer(1,len,ctx.sampleRate), d=buf.getChannelData(0);
-    let last=0;
-    for(let i=0;i<len;i++){const w=Math.random()*2-1;
-      if(type==='brown'){last=(last+0.02*w)/1.02; d[i]=last*3.4;} else d[i]=w;}
-    return buf;
   },
 
   resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
@@ -396,18 +385,21 @@ const Audio_ = {
   stopAll(){
     this._active.slice().forEach(n=>{ try{ n.stop(); }catch(e){} });
     this._active.length=0;
+    this._melodySrc=null;
   },
 
   setVolume(v){ if(this.master) this.master.gain.setTargetAtTime(this.muted?0:v, this.ctx.currentTime, .05); this._vol=v; },
   setMuted(m){ this.muted=m; this.setVolume(this._vol??0.8); },
+  setAmbient(on){ this.ambientOn=!!on; },
 
-  /* gains follow train speed each frame */
+  /* ambient gains follow train speed each frame: transit atmosphere swells as the train
+     moves, platform atmosphere takes over as it stops. Both are gated by the ambient toggle. */
   updateSpeed(spd, playing){
     this.lastSpeed=spd;
     if(!this.ctx) return;
-    const t=this.ctx.currentTime, sN=Math.min(1,spd/SPEED.cruise);
-    this.transitG.gain.setTargetAtTime(playing? sN*0.9 : 0, t, 0.25);
-    this.stationG.gain.setTargetAtTime(playing? (1-sN)*0.45 : 0, t, 0.35);
+    const t=this.ctx.currentTime, sN=Math.min(1,spd/SPEED.cruise), amb=this.ambientOn?1:0;
+    this.transitG.gain.setTargetAtTime(playing? sN*0.9*amb : 0, t, 0.25);
+    this.stationG.gain.setTargetAtTime(playing? (1-sN)*0.5*amb : 0, t, 0.35);
   },
 
   async _loadBuffer(url){
@@ -415,11 +407,11 @@ const Audio_ = {
     const p = (async()=>{
       try{
         const r=await fetch(url);
-        if(!r.ok) throw new Error('HTTP '+r.status);   // missing file → fall straight to synth, don't try to decode an error page
+        if(!r.ok) throw new Error('HTTP '+r.status);   // missing file → stay silent, don't try to decode an error page
         const a=await r.arrayBuffer();
         const b=await this.ctx.decodeAudioData(a);
         this.durations[url]=b.duration; return b;
-      }catch(e){ console.info('no recording, using synth:',url); this.durations[url]=0; return null; }
+      }catch(e){ console.info('no recording (silent):',url); this.durations[url]=0; return null; }
     })();
     this.buffers[url]=p; return p;
   },
@@ -433,11 +425,27 @@ const Audio_ = {
       if(onSrc) onSrc(s);
     });
   },
+  /* start a looping source feeding `dest` (used for the ambience beds) */
+  _loop(url,dest,onSrc){
+    this._loadBuffer(url).then(b=>{ if(!b) return;
+      const s=this.ctx.createBufferSource(); s.buffer=b; s.loop=true; s.connect(dest); s.start();
+      if(onSrc) onSrc(s);
+    });
+  },
+  /* swap the platform-ambience loop when arriving somewhere new: a station's own
+     `ambience` if it has one, otherwise the shared default. Only restarts on change. */
+  setStationAmbience(url){
+    url = url || SHARED.stationAmbience || null;
+    if(url===this.stationUrl) return;
+    this.stationUrl=url;
+    if(this.stationSrc){ try{ this.stationSrc.stop(); }catch(e){} this.stationSrc=null; }
+    if(url) this._loop(url, this.stationG, s=>this.stationSrc=s);
+  },
 
   /* ---- one-shots ---- */
   /* The era picker is a *preference*: try the requested era, then walk toward the most recent
-     era that has a recording, and finally the station's default (current) melody. Only if a
-     station has no real melody at all do we fall back to a synth placeholder. */
+     era that has a recording, and finally the station's default (current) melody. If a station
+     has no recording at all, it simply stays silent — there are no placeholders. */
   _melodyUrl(st, eraId){
     const m = st.sounds.melodies || {};
     let i = MELODY_ERAS.findIndex(e=>e.id===eraId); if(i<0) i=0;
@@ -448,64 +456,18 @@ const Audio_ = {
     this.resume();
     this.stopMelody();                       // never stack two departure melodies
     const url = this._melodyUrl(st, eraId);
-    if(url){ this._playBuffer(url,this.melodyG,delaySec,s=>{ this._melodySrc=s; }); }
-    else this._synthMelody(st.no, delaySec);
+    if(url) this._playBuffer(url,this.melodyG,delaySec,s=>{ this._melodySrc=s; });
   },
   /* stop a departure melody mid-flight so its tail can't bleed over the next
-     station's arrival announcement / placeholder chime */
+     station's arrival announcement */
   stopMelody(){ if(this._melodySrc){ try{ this._melodySrc.stop(); }catch(e){} this._melodySrc=null; } },
   announcement(st){
     this.resume();
-    if(st.sounds.announcement){ this._playBuffer(st.sounds.announcement,this.announceG); }
-    else this._synthChime();
+    if(st.sounds.announcement) this._playBuffer(st.sounds.announcement,this.announceG);
   },
   doorChime(){
     this.resume();
-    if(SHARED.doorChime){ this._playBuffer(SHARED.doorChime,this.announceG); return; }
-    const t0=this.ctx.currentTime;
-    for(let i=0;i<3;i++) this._tone(680,t0+i*0.16,0.13,0.16,this.announceG,'sine');
-  },
-
-  _marimba(freq,when,dur,dest){
-    const ctx=this.ctx;
-    const o=ctx.createOscillator(); o.type='triangle'; o.frequency.value=freq;
-    const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=freq*2.01;
-    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=freq*4;
-    const g=ctx.createGain(); const g2=ctx.createGain(); g2.gain.value=0.25;
-    g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.5,when+0.012);
-    g.gain.exponentialRampToValueAtTime(0.0008,when+dur);
-    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(dest);
-    this._track(o); this._track(o2);
-    o.start(when); o2.start(when); o.stop(when+dur+0.05); o2.stop(when+dur+0.05);
-  },
-  _synthMelody(seed, delaySec){
-    const ctx=this.ctx, t0=ctx.currentTime+0.03+(delaySec||0);
-    const penta=[0,2,4,7,9,12,14,16], base=523.25;
-    const r=mulberry(seed*977+13);
-    const n=6+Math.floor(r()*4); let time=t0; let prev=-1;
-    for(let i=0;i<n;i++){
-      let idx=Math.floor(r()*penta.length); if(idx===prev) idx=(idx+1)%penta.length; prev=idx;
-      const freq=base*Math.pow(2,penta[idx]/12);
-      this._marimba(freq,time,0.55,this.melodyG);
-      time += 0.17+r()*0.07;
-    }
-  },
-  _bell(freq,when,dest){
-    const ctx=this.ctx;
-    [1,2.0,3.01].forEach((m,i)=>{
-      const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=freq*m;
-      const g=ctx.createGain(); const amp=[0.5,0.18,0.08][i];
-      g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.01);
-      g.gain.exponentialRampToValueAtTime(0.0006,when+1.3);
-      o.connect(g).connect(dest); this._track(o); o.start(when); o.stop(when+1.4);
-    });
-  },
-  _synthChime(){ const t=this.ctx.currentTime+0.02; this._bell(987.77,t,this.announceG); this._bell(739.99,t+0.46,this.announceG); },
-  _tone(freq,when,dur,amp,dest,type){
-    const ctx=this.ctx, o=ctx.createOscillator(); o.type=type||'sine'; o.frequency.value=freq;
-    const g=ctx.createGain(); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(amp,when+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001,when+dur);
-    o.connect(g).connect(dest); this._track(o); o.start(when); o.stop(when+dur+0.03);
+    if(SHARED.doorChime) this._playBuffer(SHARED.doorChime,this.announceG);
   },
 };
 
@@ -707,11 +669,19 @@ const Scene = {
 const Ride = {
   route:[], steps:[], idx:0, phaseStart:0, playing:false, riding:false,
   pausedAt:0, fromKey:null, toKey:null, lastT:performance.now(),
-  melodyEra:'current', travelScale:1,
+  melodyEra:'current', travelScale:1, loop:false,
 
   buildRoute(){
     const path=shortestPath(this.fromKey,this.toKey);
     this.route = path ? pathToNodes(path) : [];
+  },
+  /* ride a whole line end to end; circular lines come back round to the start so a
+     looped ride closes the circle cleanly */
+  buildLineRoute(lineId){
+    const line=LINES[lineId]; if(!line) { this.route=[]; return; }
+    const idxs=line.stations.map((_,i)=>i);
+    if(line.circular) idxs.push(0);
+    this.route = idxs.map(i=>({key:nodeKey(lineId,i), lineId, idx:i, st:line.stations[i]}));
   },
   buildSteps(){
     const s=[]; const R=this.route;
@@ -719,7 +689,7 @@ const Ride = {
     for(let k=1;k<R.length;k++){
       s.push({type:'transit',rpos:k});
       s.push({type:'arrive',rpos:k});
-      s.push({type:'dwell',rpos:k,final:(k===R.length-1)});
+      s.push({type:'dwell',rpos:k,final:(!this.loop && k===R.length-1)});
       if(k<R.length-1) s.push({type:'depart',rpos:k});
     }
     this.steps=s;
@@ -730,7 +700,18 @@ const Ride = {
 
   start(){
     Audio_.init(); Audio_.resume();
+    this.loop=false;
     this.buildRoute(); if(this.route.length<2 && this.fromKey!==this.toKey) return;
+    this._beginRide();
+  },
+  /* start a full-line ride from the main-menu line buttons; `loop` keeps circling that line */
+  startLine(lineId, loop){
+    Audio_.init(); Audio_.resume();
+    this.buildLineRoute(lineId); if(this.route.length<2) return;
+    this.loop=!!loop;
+    this._beginRide();
+  },
+  _beginRide(){
     this.buildSteps();
     this.idx=0; this.riding=true; this.playing=true;
     UI.enterRide();
@@ -739,28 +720,41 @@ const Ride = {
     this.onStepStart();
   },
   finish(){
+    if(this.loop && this.riding){     // loop mode: roll straight back to the first stop
+      this._clearTimers(); Audio_.stopMelody();
+      this.idx=0; this.phaseStart=performance.now(); this.onStepStart();
+      return;
+    }
     this.playing=false;
     UI.setPhase('Arrived');
     UI.showArrived(this.route[this.route.length-1].st);
   },
   exit(){
-    this.riding=false; this.playing=false;
+    this.riding=false; this.playing=false; this.loop=false;
+    this._clearTimers();
     Audio_.stopAll();
     UI.setPhase('Waiting');
     UI.exitRide();
   },
+  _clearTimers(){ clearTimeout(this._hideSignTimer); clearTimeout(this._chimeTimer); clearTimeout(this._departingTimer); },
 
   onStepStart(){
     const step=this.steps[this.idx]; if(!step) return this.finish();
     const st=this.stationOf(step), line=this.lineOf(step);
     if(step.type==='depart'){
+      // The train is still standing at the platform: the departure melody plays first,
+      // THEN the doors close (chime) and only then does it pull away (see tick()).
+      this._clearTimers();
       UI.setPhase('Departure melody');
       UI.showSign(step.rpos);
-      Audio_.doorChime();
-      Audio_.melody(st, this.melodyEra, SHARED.doorChime?0:0.52);
-      UI.clearSubtitle();
-      this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.depart*0.62);
+      Audio_.setStationAmbience(st.sounds.ambience);
+      Audio_.melody(st, this.melodyEra, 0);
+      UI.subtitle('発車メロディ', 'Departure melody');
       if(step.rpos===0) UI.updateProgress(0);
+      // doors close near the end of the platform hold, just before acceleration begins
+      this._chimeTimer=setTimeout(()=>{ Audio_.doorChime(); UI.subtitle('ドアが閉まります', 'Doors closing'); }, Math.max(0,TIMING.departHold-600));
+      this._departingTimer=setTimeout(()=>{ UI.setPhase('Departing'); UI.clearSubtitle(); }, TIMING.departHold);
+      this._hideSignTimer=setTimeout(()=>UI.hideSign(), TIMING.departHold+500);
     }
     else if(step.type==='transit'){
       UI.setPhase('In transit'); UI.applyTheme(line); UI.hideSign(); UI.clearSubtitle();
@@ -770,9 +764,10 @@ const Ride = {
       UI.setPhase('Arrival announcement');
       UI.showSign(step.rpos);
       Audio_.stopMelody();                 // clear the departure melody before the announcement
+      Audio_.setStationAmbience(st.sounds.ambience);
       Audio_.announcement(st);
       UI.updateProgress(step.rpos);
-      const last = step.rpos===this.route.length-1;
+      const last = !this.loop && step.rpos===this.route.length-1;
       UI.subtitle(`Arriving soon: ${st.romaji}`, (last?'Final stop · ':'Arriving at ')+st.romaji);
       this._fitArriveToAnnouncement(step);
     }
@@ -783,7 +778,9 @@ const Ride = {
     }
   },
 
-  duration(){ const t=this.steps[this.idx]; const base = t.dur ?? TIMING[t.type];
+  duration(){ const t=this.steps[this.idx];
+    if(t.type==='depart') return TIMING.departHold + TIMING.departAccel;
+    const base = t.dur ?? TIMING[t.type];
     return t.type==='transit' ? base*this.travelScale : base; },
 
   /* stretch the arrive phase so the announcement always finishes ~5s before the train actually stops */
@@ -809,9 +806,14 @@ const Ride = {
     if(!this.riding){ spd=SPEED.idleDrift; }
     else if(this.playing){
       const step=this.steps[this.idx];
-      const p=(now-this.phaseStart)/this.duration();
+      const dur=this.duration();
+      const p=(now-this.phaseStart)/dur;
       if(step){
-        if(step.type==='depart') spd=SPEED.cruise*smooth(p);
+        if(step.type==='depart'){
+          // hold at the platform while the melody plays, then accelerate away
+          const holdFrac=TIMING.departHold/dur;
+          spd = p<holdFrac ? 0 : SPEED.cruise*smooth((p-holdFrac)/(1-holdFrac));
+        }
         else if(step.type==='transit') spd=SPEED.cruise;
         else if(step.type==='arrive') spd=SPEED.cruise*smooth(1-p);
         else spd=0;
@@ -835,10 +837,10 @@ const Ride = {
   },
   skip(){
     if(!this.riding) return;
-    Audio_.stopAll();
+    Audio_.stopAll(); this._clearTimers();
     // jump to next 'arrive' step
     for(let j=this.idx+1;j<this.steps.length;j++){
-      if(this.steps[j].type==='arrive'){ this.idx=j; this.phaseStart=performance.now(); clearTimeout(this._hideSignTimer);
+      if(this.steps[j].type==='arrive'){ this.idx=j; this.phaseStart=performance.now();
         if(!this.playing){ this.playing=true; UI.setPlayIcon(true); Audio_.resume(); }
         this.onStepStart(); return; }
     }
@@ -859,7 +861,7 @@ const Ride = {
       : this.steps.findIndex(s=>s.type==='arrive' && s.rpos===rpos);
     if(target<0) return;
     Audio_.stopAll();
-    clearTimeout(this._hideSignTimer);
+    this._clearTimers();
     this.idx=target; this.phaseStart=performance.now();
     if(!this.playing){ this.playing=true; UI.setPlayIcon(true); Audio_.resume(); }
     this.onStepStart();
@@ -895,10 +897,40 @@ const UI = {
     const slow=$('#slowRide');
     slow.checked = Ride.travelScale>1;
     slow.onchange=()=>{ Ride.travelScale = slow.checked?2:1; this.refreshRoute(); };
+    const amb=$('#ambientToggle');
+    Audio_.setAmbient(amb.checked);
+    amb.onchange=()=>Audio_.setAmbient(amb.checked);
     f.onchange=()=>{Ride.fromKey=f.value; this.refreshRoute();};
     t.onchange=()=>{Ride.toKey=t.value; this.refreshRoute();};
     $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromKey=f.value; Ride.toKey=t.value; this.refreshRoute();};
     this.refreshRoute();
+  },
+  /* left-hand panel: one button per line + a Loop pill that, when on, keeps the
+     ride circling that line only instead of arriving */
+  initLinePanel(){
+    const list=$('#lineList'); if(!list) return;
+    list.innerHTML='';
+    Object.values(LINES).forEach(line=>{
+      const item=document.createElement('div'); item.className='lineItem';
+      item.style.setProperty('--lc', line.color);
+      item.style.setProperty('--lcd', line.deep);
+      item.innerHTML =
+        `<button class="lineRide" data-line="${line.id}">`+
+          `<span class="lcode">${line.id}</span>`+
+          `<span class="lname"><b>${line.kanji}</b><i>${line.name}</i></span>`+
+        `</button>`+
+        `<button class="loopPill" data-line="${line.id}" aria-pressed="false" title="Loop this line only">⟳ Loop</button>`;
+      list.appendChild(item);
+    });
+    list.querySelectorAll('.loopPill').forEach(p=>p.onclick=()=>{
+      const on=p.getAttribute('aria-pressed')!=='true';
+      p.setAttribute('aria-pressed', on?'true':'false');
+    });
+    list.querySelectorAll('.lineRide').forEach(b=>b.onclick=()=>{
+      const id=b.dataset.line;
+      const pill=list.querySelector(`.loopPill[data-line="${id}"]`);
+      Ride.startLine(id, pill && pill.getAttribute('aria-pressed')==='true');
+    });
   },
   applyTheme(line){
     document.documentElement.style.setProperty('--green', line.color);
@@ -928,7 +960,8 @@ const UI = {
     const nodes = pathToNodes(path);
     const transfers = nodes.slice(1).filter((n,i)=>n.lineId!==nodes[i].lineId).length;
     const stops = nodes.length-1;
-    const travelMs = same ? 0 : TIMING.depart + stops*(TIMING.transit*Ride.travelScale+TIMING.arrive+TIMING.dwell) + Math.max(0,stops-1)*TIMING.depart;
+    const departMs = TIMING.departHold + TIMING.departAccel;
+    const travelMs = same ? 0 : departMs + stops*(TIMING.transit*Ride.travelScale+TIMING.arrive+TIMING.dwell) + Math.max(0,stops-1)*departMs;
     $('#routeMeta').textContent = same ? 'Choose a different destination'
       : `${stops} stop${stops!==1?'s':''}${transfers?` · ${transfers} transfer${transfers!==1?'s':''}`:''} · ${nodes.length} station signs`;
     $('#routeTime').textContent = same ? '—' : `demo ${formatMs(travelMs)}`;
@@ -939,7 +972,7 @@ const UI = {
     const allStations = Object.values(LINES).flatMap(l=>l.stations);
     const stationFiles = allStations.reduce((sum,st)=>sum + ['melody','announcement','ambience'].filter(k=>!!st.sounds[k]).length
       + Object.values(st.sounds.melodies||{}).filter(Boolean).length, 0);
-    const sharedFiles = ['doorChime','transitAmbience'].filter(k=>!!SHARED[k]).length;
+    const sharedFiles = ['doorChime','transitAmbience','stationAmbience'].filter(k=>!!SHARED[k]).length;
     const era = MELODY_ERAS.find(e=>e.id===Ride.melodyEra) || MELODY_ERAS[0];
     $('#soundStatus').innerHTML = `<b>${lineNames}</b> · <b>${stationFiles}</b> station sounds and <b>${sharedFiles}</b> shared sounds configured · melody preference: <b>${era.label}</b> · falls back to the most recent recording`;
     this.applyTheme(LINES[nodes[0].lineId]);
@@ -1040,6 +1073,7 @@ const UI = {
 /* ---------- boot ---------- */
 Scene.init();
 UI.initSelects();
+UI.initLinePanel();
 UI.bindControls();
 Ride.lastT=performance.now();
 requestAnimationFrame(t=>Ride.tick(t));
