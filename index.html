@@ -114,6 +114,8 @@
         <div class="selrow"><select id="eraSel"></select></div>
       </div>
 
+      <label class="toggle"><input type="checkbox" id="slowRide"> 2× travel time <span class="hint">— more space between stations, fewer overlapping sounds</span></label>
+
       <button id="departBtn">Ride</button>
 
       <div id="routePreview" aria-live="polite">
@@ -307,7 +309,8 @@ const MELODY_ERAS = [
 ];
 
 // TIMING (ms per phase) and SPEED — tweak the feel of the ride
-const TIMING = { depart:4200, transit:5200, arrive:3600, dwell:2600 };
+// (the 2× travel toggle in setup multiplies the transit phase at run time)
+const TIMING = { depart:4800, transit:6800, arrive:3600, dwell:3200 };
 const SPEED  = { cruise:270, idleDrift:26 };   // px/sec
 /* =================================================================== */
 
@@ -417,10 +420,11 @@ const Audio_ = {
   preload(url){ if(url) this._loadBuffer(url); },
   /* synchronous best-effort duration (sec); 0/undefined until loaded */
   knownDuration(url){ return url ? this.durations[url] : undefined; },
-  _playBuffer(url,dest,delaySec){
+  _playBuffer(url,dest,delaySec,onSrc){
     this._loadBuffer(url).then(b=>{ if(!b) return;
       const s=this.ctx.createBufferSource(); s.buffer=b; s.connect(dest);
       this._track(s); s.start(this.ctx.currentTime+(delaySec||0));
+      if(onSrc) onSrc(s);
     });
   },
 
@@ -436,10 +440,14 @@ const Audio_ = {
   },
   melody(st, eraId, delaySec){
     this.resume();
+    this.stopMelody();                       // never stack two departure melodies
     const url = this._melodyUrl(st, eraId);
-    if(url){ this._playBuffer(url,this.melodyG,delaySec); }
+    if(url){ this._playBuffer(url,this.melodyG,delaySec,s=>{ this._melodySrc=s; }); }
     else this._synthMelody(st.no, delaySec);
   },
+  /* stop a departure melody mid-flight so its tail can't bleed over the next
+     station's arrival announcement / placeholder chime */
+  stopMelody(){ if(this._melodySrc){ try{ this._melodySrc.stop(); }catch(e){} this._melodySrc=null; } },
   announcement(st){
     this.resume();
     if(st.sounds.announcement){ this._playBuffer(st.sounds.announcement,this.announceG); }
@@ -693,7 +701,7 @@ const Scene = {
 const Ride = {
   route:[], steps:[], idx:0, phaseStart:0, playing:false, riding:false,
   pausedAt:0, fromKey:null, toKey:null, lastT:performance.now(),
-  melodyEra:'current',
+  melodyEra:'current', travelScale:1,
 
   buildRoute(){
     const path=shortestPath(this.fromKey,this.toKey);
@@ -755,6 +763,7 @@ const Ride = {
     else if(step.type==='arrive'){
       UI.setPhase('Arrival announcement');
       UI.showSign(step.rpos);
+      Audio_.stopMelody();                 // clear the departure melody before the announcement
       Audio_.announcement(st);
       UI.updateProgress(step.rpos);
       const last = step.rpos===this.route.length-1;
@@ -768,7 +777,8 @@ const Ride = {
     }
   },
 
-  duration(){ const t=this.steps[this.idx]; return t.dur ?? TIMING[t.type]; },
+  duration(){ const t=this.steps[this.idx]; const base = t.dur ?? TIMING[t.type];
+    return t.type==='transit' ? base*this.travelScale : base; },
 
   /* stretch the arrive phase so the announcement always finishes ~5s before the train actually stops */
   _fitArriveToAnnouncement(arriveStep){
@@ -868,6 +878,9 @@ const UI = {
     eraSel.innerHTML = MELODY_ERAS.map(e=>`<option value="${e.id}">${e.label}</option>`).join('');
     eraSel.value='current'; Ride.melodyEra='current';
     eraSel.onchange=()=>{ Ride.melodyEra=eraSel.value; this.refreshRoute(); };
+    const slow=$('#slowRide');
+    slow.checked = Ride.travelScale>1;
+    slow.onchange=()=>{ Ride.travelScale = slow.checked?2:1; this.refreshRoute(); };
     f.onchange=()=>{Ride.fromKey=f.value; this.refreshRoute();};
     t.onchange=()=>{Ride.toKey=t.value; this.refreshRoute();};
     $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromKey=f.value; Ride.toKey=t.value; this.refreshRoute();};
@@ -901,7 +914,7 @@ const UI = {
     const nodes = pathToNodes(path);
     const transfers = nodes.slice(1).filter((n,i)=>n.lineId!==nodes[i].lineId).length;
     const stops = nodes.length-1;
-    const travelMs = same ? 0 : TIMING.depart + stops*(TIMING.transit+TIMING.arrive+TIMING.dwell) + Math.max(0,stops-1)*TIMING.depart;
+    const travelMs = same ? 0 : TIMING.depart + stops*(TIMING.transit*Ride.travelScale+TIMING.arrive+TIMING.dwell) + Math.max(0,stops-1)*TIMING.depart;
     $('#routeMeta').textContent = same ? 'Choose a different destination'
       : `${stops} stop${stops!==1?'s':''}${transfers?` · ${transfers} transfer${transfers!==1?'s':''}`:''} · ${nodes.length} station signs`;
     $('#routeTime').textContent = same ? '—' : `demo ${formatMs(travelMs)}`;
