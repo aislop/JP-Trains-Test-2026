@@ -1107,12 +1107,20 @@ const UI = {
 
   buildProgress(route){
     const p=$('#progress'); p.innerHTML='';
+    let transferIdx=0;   // alternates the lift direction so successive transfers step up, then down
     route.forEach((node,k)=>{
       const d=document.createElement('div');
-      d.className='tick'+(k===route.length-1?' end':'');
-      d.dataset.k=k;
+      const line=LINES[node.lineId];
       const last=k===route.length-1;
-      const label=`${node.st.romaji} · ${node.st.kanji}`+(k===0?' (start)':last?' (final)':'');
+      const isTransfer = k>0 && node.lineId!==route[k-1].lineId;
+      let cls='tick';
+      if(last) cls+=' end';
+      if(isTransfer) cls+=' transfer'+((transferIdx++%2)?' down':'');
+      d.className=cls;
+      d.dataset.k=k;
+      d.style.setProperty('--tc', line.color);   // tint every dot by its line → line changes read as colour bands
+      let label=`${node.st.romaji} · ${node.st.kanji}`+(k===0?' (start)':last?' (final)':'');
+      if(isTransfer) label+=` — transfer to ${line.name}`;
       d.setAttribute('aria-label',label);
       d.addEventListener('mouseenter',()=>this.showTip(d,label));
       d.addEventListener('mouseleave',()=>this.hideTip());
