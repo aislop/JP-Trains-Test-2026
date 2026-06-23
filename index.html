@@ -20,6 +20,7 @@
        stationAmbience  -> looping default platform atmosphere (while stopped),
                            used when a station has no `ambience` of its own
    The "Ambient sounds" toggle in setup turns transit + station atmosphere on/off.
+   The "Arrival announcements" toggle in setup turns spoken arrival announcements on/off.
 
    Upload folders / naming convention:
        sounds/departure-melodies/{line}-{station-number}-{station-slug}-departure-melody.mp3
@@ -121,6 +122,7 @@
 
       <label class="toggle"><input type="checkbox" id="slowRide"> 2× travel time <span class="hint">— even more space between stations</span></label>
       <label class="toggle"><input type="checkbox" id="ambientToggle" checked> Ambient sounds <span class="hint">— in-transit &amp; platform atmosphere</span></label>
+      <label class="toggle"><input type="checkbox" id="announceToggle" checked> Arrival announcements <span class="hint">— spoken station announcements</span></label>
 
       <button id="departBtn">Ride</button>
 
@@ -418,7 +420,7 @@ const Audio_ = {
   ctx:null, master:null, melodyG:null, announceG:null, transitG:null, stationG:null,
   buffers:{}, durations:{},
   transitSrc:null, stationSrc:null, stationUrl:null,
-  lastSpeed:0, muted:false, started:false, ambientOn:true, _vol:0.8,
+  lastSpeed:0, muted:false, started:false, ambientOn:true, announceOn:true, _vol:0.8,
   _active:[], _melodySrc:null,
 
   init(){
@@ -456,6 +458,7 @@ const Audio_ = {
   setVolume(v){ if(this.master) this.master.gain.setTargetAtTime(this.muted?0:v, this.ctx.currentTime, .05); this._vol=v; },
   setMuted(m){ this.muted=m; this.setVolume(this._vol??0.8); },
   setAmbient(on){ this.ambientOn=!!on; },
+  setAnnounce(on){ this.announceOn=!!on; },
 
   /* ambient gains follow train speed each frame: transit atmosphere swells as the train
      moves, platform atmosphere takes over as it stops. Both are gated by the ambient toggle. */
@@ -521,7 +524,7 @@ const Audio_ = {
   stopMelody(){ if(this._melodySrc){ try{ this._melodySrc.stop(); }catch(e){} this._melodySrc=null; } },
   announcement(st){
     this.resume();
-    if(st.sounds.announcement) this._playBuffer(st.sounds.announcement,this.announceG);
+    if(this.announceOn && st.sounds.announcement) this._playBuffer(st.sounds.announcement,this.announceG);
   },
   doorChime(){
     this.resume();
@@ -954,6 +957,9 @@ const UI = {
     const amb=$('#ambientToggle');
     Audio_.setAmbient(amb.checked);
     amb.onchange=()=>Audio_.setAmbient(amb.checked);
+    const annc=$('#announceToggle');
+    Audio_.setAnnounce(annc.checked);
+    annc.onchange=()=>Audio_.setAnnounce(annc.checked);
     f.onchange=()=>{Ride.fromKey=f.value; this.refreshRoute();};
     t.onchange=()=>{Ride.toKey=t.value; this.refreshRoute();};
     $('#swapBtn').onclick=()=>{const a=f.value; f.value=t.value; t.value=a; Ride.fromKey=f.value; Ride.toKey=t.value; this.refreshRoute();};
