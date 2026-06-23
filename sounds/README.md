@@ -28,9 +28,9 @@ sounds/ambience/{line}-{station-number}-{station-slug}-platform-ambience.{ext}
 sounds/shared/{sound-name}.{ext}
 ```
 
-- `{line}` is the JR line code in lowercase, for example `jy` or `jc`.
+- `{line}` is the line code in lowercase: `jy` (Yamanote), `jc` (Chūō), `ja` (Saikyō), or `ko` (Keiō).
 - `{station-number}` is the station number padded to two digits, for example `01`, `05`, or `30`.
-- `{station-slug}` is the station romaji in lowercase with spaces/apostrophes replaced by hyphens.
+- `{station-slug}` is the station romaji in lowercase with every non-alphanumeric character (spaces, apostrophes, hyphens) stripped out — e.g. `Takanawa Gateway` → `takanawagateway`, `Kita-Akabane` → `kitaakabane`.
 - `{ext}` can be `mp3`, `ogg`, or `wav`; `mp3` is the safest default for browser playback.
 
 ## Examples

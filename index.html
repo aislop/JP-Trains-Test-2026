@@ -48,8 +48,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Yamanote Ride — ride the window, not the map</title>
-<meta name="description" content="An ambient JR Tokyo line ride: pick a From and To station and watch the city roll past the window, with departure melodies and arrival announcements.">
+<title>Tokyo Line Ride — ride the window, not the map</title>
+<meta name="description" content="An ambient Tokyo rail ride across the Yamanote, Chūō, Saikyō and Keiō lines: pick a From and To station and watch the city roll past the window, with departure melodies and arrival announcements.">
 <meta name="theme-color" content="#070b16">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070b16'/%3E%3Crect x='8' y='6' width='16' height='16' rx='4' fill='%239ACD32'/%3E%3Ccircle cx='12' cy='25' r='2' fill='%239ACD32'/%3E%3Ccircle cx='20' cy='25' r='2' fill='%239ACD32'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -218,15 +218,81 @@ const CHUO_STATIONS = [
   {line:'JC', no:24,kanji:'高尾',       kana:'たかお',           romaji:'Takao',              sounds:{melody:null,announcement:null,ambience:null}},
 ];
 
+/* Saikyō Line (JA): Ōsaki ↔ Ōmiya. It runs alongside the Yamanote between Ōsaki and Ikebukuro
+   — those shared-name stations (Osaki/Ebisu/Shibuya/Shinjuku/Ikebukuro) auto-join in the network
+   graph, so the router can transfer between the two lines there. JR numbers it from JA08. */
+const SAIKYO_STATIONS = [
+  {line:'JA', no:8, kanji:'大崎',       kana:'おおさき',         romaji:'Osaki',              sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:9, kanji:'恵比寿',     kana:'えびす',           romaji:'Ebisu',              sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:10,kanji:'渋谷',       kana:'しぶや',           romaji:'Shibuya',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:11,kanji:'新宿',       kana:'しんじゅく',       romaji:'Shinjuku',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:12,kanji:'池袋',       kana:'いけぶくろ',       romaji:'Ikebukuro',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:13,kanji:'板橋',       kana:'いたばし',         romaji:'Itabashi',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:14,kanji:'十条',       kana:'じゅうじょう',     romaji:'Jujo',               sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:15,kanji:'赤羽',       kana:'あかばね',         romaji:'Akabane',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:16,kanji:'北赤羽',     kana:'きたあかばね',     romaji:'Kita-Akabane',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:17,kanji:'浮間舟渡',   kana:'うきまふなど',     romaji:'Ukima-Funado',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:18,kanji:'戸田公園',   kana:'とだこうえん',     romaji:'Toda-Koen',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:19,kanji:'戸田',       kana:'とだ',             romaji:'Toda',               sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:20,kanji:'北戸田',     kana:'きたとだ',         romaji:'Kita-Toda',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:21,kanji:'武蔵浦和',   kana:'むさしうらわ',     romaji:'Musashi-Urawa',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:22,kanji:'中浦和',     kana:'なかうらわ',       romaji:'Naka-Urawa',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:23,kanji:'南与野',     kana:'みなみよの',       romaji:'Minami-Yono',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:24,kanji:'与野本町',   kana:'よのほんまち',     romaji:'Yono-Honmachi',      sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:25,kanji:'北与野',     kana:'きたよの',         romaji:'Kita-Yono',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'JA', no:26,kanji:'大宮',       kana:'おおみや',         romaji:'Omiya',              sounds:{melody:null,announcement:null,ambience:null}},
+];
+
+/* Keiō Line (KO): a private (non-JR) line, Shinjuku ↔ Keiō-hachiōji. Only Shinjuku shares a name
+   with the JR lines, so that's where the network graph lets riders transfer onto/off the Keiō. */
+const KEIO_STATIONS = [
+  {line:'KO', no:1, kanji:'新宿',           kana:'しんじゅく',             romaji:'Shinjuku',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:2, kanji:'笹塚',           kana:'ささづか',               romaji:'Sasazuka',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:3, kanji:'代田橋',         kana:'だいたばし',             romaji:'Daitabashi',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:4, kanji:'明大前',         kana:'めいだいまえ',           romaji:'Meidaimae',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:5, kanji:'下高井戸',       kana:'しもたかいど',           romaji:'Shimotakaido',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:6, kanji:'桜上水',         kana:'さくらじょうすい',       romaji:'Sakurajosui',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:7, kanji:'上北沢',         kana:'かみきたざわ',           romaji:'Kami-Kitazawa',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:8, kanji:'八幡山',         kana:'はちまんやま',           romaji:'Hachimanyama',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:9, kanji:'芦花公園',       kana:'ろかこうえん',           romaji:'Roka-Koen',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:10,kanji:'千歳烏山',       kana:'ちとせからすやま',       romaji:'Chitose-Karasuyama',  sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:11,kanji:'仙川',           kana:'せんがわ',               romaji:'Sengawa',             sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:12,kanji:'つつじヶ丘',     kana:'つつじがおか',           romaji:'Tsutsujigaoka',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:13,kanji:'柴崎',           kana:'しばさき',               romaji:'Shibasaki',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:14,kanji:'国領',           kana:'こくりょう',             romaji:'Kokuryo',             sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:15,kanji:'布田',           kana:'ふだ',                   romaji:'Fuda',                sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:16,kanji:'調布',           kana:'ちょうふ',               romaji:'Chofu',               sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:17,kanji:'西調布',         kana:'にしちょうふ',           romaji:'Nishi-Chofu',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:18,kanji:'飛田給',         kana:'とびたきゅう',           romaji:'Tobitakyu',           sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:19,kanji:'武蔵野台',       kana:'むさしのだい',           romaji:'Musashino-dai',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:20,kanji:'多磨霊園',       kana:'たまれいえん',           romaji:'Tama-Reien',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:21,kanji:'東府中',         kana:'ひがしふちゅう',         romaji:'Higashi-Fuchu',       sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:22,kanji:'府中',           kana:'ふちゅう',               romaji:'Fuchu',               sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:23,kanji:'分倍河原',       kana:'ぶばいがわら',           romaji:'Bubaigawara',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:24,kanji:'中河原',         kana:'なかがわら',             romaji:'Nakagawara',          sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:25,kanji:'聖蹟桜ヶ丘',     kana:'せいせきさくらがおか',   romaji:'Seiseki-Sakuragaoka', sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:26,kanji:'百草園',         kana:'もぐさえん',             romaji:'Mogusaen',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:27,kanji:'高幡不動',       kana:'たかはたふどう',         romaji:'Takahatafudo',        sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:28,kanji:'南平',           kana:'みなみだいら',           romaji:'Minamidaira',         sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:29,kanji:'平山城址公園',   kana:'ひらやまじょうしこうえん',romaji:'Hirayamajoshi-Koen', sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:30,kanji:'長沼',           kana:'ながぬま',               romaji:'Naganuma',            sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:31,kanji:'北野',           kana:'きたの',                 romaji:'Kitano',              sounds:{melody:null,announcement:null,ambience:null}},
+  {line:'KO', no:32,kanji:'京王八王子',     kana:'けいおうはちおうじ',     romaji:'Keio-Hachioji',       sounds:{melody:null,announcement:null,ambience:null}},
+];
+
 const LINES = {
   JY: {id:'JY', name:'Yamanote Line', kanji:'山手線', badge:'JR Yamanote Line', color:'#9ACD32', deep:'#6fa01f', circular:true, stations:YAMANOTE_STATIONS},
   JC: {id:'JC', name:'Chūō Line', kanji:'中央線', badge:'JR Chūō Line', color:'#F15A24', deep:'#B84218', circular:false, stations:CHUO_STATIONS},
+  JA: {id:'JA', name:'Saikyō Line', kanji:'埼京線', badge:'JR Saikyō Line', color:'#2E8B57', deep:'#19603B', circular:false, stations:SAIKYO_STATIONS},
+  KO: {id:'KO', name:'Keiō Line', kanji:'京王線', badge:'Keiō Line', color:'#E4007F', deep:'#A80060', circular:false, stations:KEIO_STATIONS},
 };
 const TRANSFER_LINES = {
+  JY: {name:'Yamanote Line', kanji:'山手線', badge:'JR Yamanote Line', color:'#9ACD32', deep:'#6fa01f'},
   JC: {name:'Chūō Line', kanji:'中央線', badge:'JR Chūō Line', color:'#F15A24', deep:'#B84218'},
   JK: {name:'Keihin-Tōhoku Line', kanji:'京浜東北線', badge:'JR Keihin-Tōhoku Line', color:'#00A7E1', deep:'#007AA5'},
   JA: {name:'Saikyō Line', kanji:'埼京線', badge:'JR Saikyō Line', color:'#2E8B57', deep:'#19603B'},
   JS: {name:'Shōnan-Shinjuku Line', kanji:'湘南新宿ライン', badge:'JR Shōnan-Shinjuku Line', color:'#E87722', deep:'#AF5412'},
+  KO: {name:'Keiō Line', kanji:'京王線', badge:'Keiō Line', color:'#E4007F', deep:'#A80060'},
 };
 const YAMANOTE_TRANSFERS = {
   Tokyo:['JC','JK'],
@@ -236,7 +302,7 @@ const YAMANOTE_TRANSFERS = {
   Nippori:['JK'],
   Tabata:['JK'],
   Ikebukuro:['JA','JS'],
-  Shinjuku:['JC','JA','JS'],
+  Shinjuku:['JC','JA','JS','KO'],
   Yoyogi:['JC'],
   Osaki:['JA','JS'],
   Shinagawa:['JK'],
@@ -246,17 +312,43 @@ const YAMANOTE_TRANSFERS = {
   Shimbashi:['JK'],
   Yurakucho:['JK'],
 };
-YAMANOTE_STATIONS.forEach(st=>{ st.transfers = (YAMANOTE_TRANSFERS[st.romaji]||[]).map(id=>TRANSFER_LINES[id]); });
+const CHUO_TRANSFERS = {
+  Tokyo:['JY','JK'],
+  Kanda:['JY','JK'],
+  Shinjuku:['JY','JA','JS','KO'],
+  Yoyogi:['JY'],
+};
+const SAIKYO_TRANSFERS = {
+  Osaki:['JY','JS'],
+  Ebisu:['JY'],
+  Shibuya:['JY','JS'],
+  Shinjuku:['JY','JC','JS','KO'],
+  Ikebukuro:['JY','JS'],
+  Akabane:['JK'],
+};
+const KEIO_TRANSFERS = {
+  Shinjuku:['JY','JC','JA','JS'],
+};
+/* attach decorative transfer chips per line (the network graph below handles the *real*
+   same-name connections used for routing — these are just the hints shown on station signs) */
+const LINE_TRANSFERS = { JY:YAMANOTE_TRANSFERS, JC:CHUO_TRANSFERS, JA:SAIKYO_TRANSFERS, KO:KEIO_TRANSFERS };
+Object.values(LINES).forEach(line=>{
+  const map = LINE_TRANSFERS[line.id] || {};
+  line.stations.forEach(st=>{ st.transfers = (map[st.romaji]||[]).map(id=>TRANSFER_LINES[id]).filter(Boolean); });
+});
 
 /* ---- auto-wire the recorded audio that ships in /sounds ----
    Files follow {line}-{nn}-{slug}-{kind}.mp3 (see sounds/README.md), so we derive each
-   station's melody/announcement URL from its line+number+romaji instead of hand-listing 30
-   paths. A missing file just 404s and stays silent — there are no placeholders (see Audio engine). */
+   station's melody/announcement URL from its line+number+romaji across every line instead of
+   hand-listing paths. A missing file just 404s and stays silent — there are no placeholders
+   (see Audio engine). */
 const slugify = romaji => romaji.toLowerCase().replace(/[^a-z0-9]+/g,'');
-YAMANOTE_STATIONS.forEach(st=>{
-  const base = `${st.line.toLowerCase()}-${String(st.no).padStart(2,'0')}-${slugify(st.romaji)}`;
-  if(!st.sounds.melody)       st.sounds.melody       = `sounds/departure-melodies/${base}-departure-melody.mp3`;
-  if(!st.sounds.announcement) st.sounds.announcement = `sounds/announcements/${base}-arrival-announcement.mp3`;
+Object.values(LINES).forEach(line=>{
+  line.stations.forEach(st=>{
+    const base = `${st.line.toLowerCase()}-${String(st.no).padStart(2,'0')}-${slugify(st.romaji)}`;
+    if(!st.sounds.melody)       st.sounds.melody       = `sounds/departure-melodies/${base}-departure-melody.mp3`;
+    if(!st.sounds.announcement) st.sounds.announcement = `sounds/announcements/${base}-arrival-announcement.mp3`;
+  });
 });
 
 /* ---- network graph: every modeled line, joined at same-name stations ---- */
@@ -1015,12 +1107,20 @@ const UI = {
 
   buildProgress(route){
     const p=$('#progress'); p.innerHTML='';
+    let transferIdx=0;   // alternates the lift direction so successive transfers step up, then down
     route.forEach((node,k)=>{
       const d=document.createElement('div');
-      d.className='tick'+(k===route.length-1?' end':'');
-      d.dataset.k=k;
+      const line=LINES[node.lineId];
       const last=k===route.length-1;
-      const label=`${node.st.romaji} · ${node.st.kanji}`+(k===0?' (start)':last?' (final)':'');
+      const isTransfer = k>0 && node.lineId!==route[k-1].lineId;
+      let cls='tick';
+      if(last) cls+=' end';
+      if(isTransfer) cls+=' transfer'+((transferIdx++%2)?' down':'');
+      d.className=cls;
+      d.dataset.k=k;
+      d.style.setProperty('--tc', line.color);   // tint every dot by its line → line changes read as colour bands
+      let label=`${node.st.romaji} · ${node.st.kanji}`+(k===0?' (start)':last?' (final)':'');
+      if(isTransfer) label+=` — transfer to ${line.name}`;
       d.setAttribute('aria-label',label);
       d.addEventListener('mouseenter',()=>this.showTip(d,label));
       d.addEventListener('mouseleave',()=>this.hideTip());
